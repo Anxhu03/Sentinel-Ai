@@ -1,0 +1,42 @@
+services:
+  auth-service:
+    build: ./services/auth-service
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+
+  product-service:
+    build: ./services/product-service
+    ports:
+      - "8002:8002"
+    restart: unless-stopped
+
+  inventory-service:
+    build: ./services/inventory-service
+    ports:
+      - "8003:8003"
+    restart: unless-stopped
+
+  payment-service:
+    build: ./services/payment-service
+    ports:
+      - "8004:8004"
+    restart: unless-stopped
+
+  order-service:
+    build: ./services/order-service
+    ports:
+      - "8005:8005"
+    restart: unless-stopped
+
+  shipping-service:
+    build: ./services/shipping-service
+    ports:
+      - "8006:8006"
+    restart: unless-stopped
+
+  notification-service:
+    build: ./services/notification-service
+    ports:
+      - "8007:8007"
+    restart: unless-stopped
