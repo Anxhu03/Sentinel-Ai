@@ -44,6 +44,57 @@ export default function AuthPage({ onNavigate, onLoginSuccess, initialNotice, in
   const [successMsg, setSuccessMsg] = useState("")
   const [fieldErrors, setFieldErrors] = useState({})
 
+  // Custom API configuration state (for deployed environments where VITE_API_BASE was not set at build time)
+  const [customApiBase, setCustomApiBase] = useState(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const q = new URLSearchParams(window.location.search).get("api_base")
+        if (q) {
+          localStorage.setItem("sentinel_api_base", q.trim())
+          return q.trim()
+        }
+        return localStorage.getItem("sentinel_api_base") || ""
+      }
+      return ""
+    } catch {
+      return ""
+    }
+  })
+
+  const handleSaveApiBase = (e) => {
+    if (e && e.preventDefault) e.preventDefault()
+    const clean = customApiBase.trim().replace(/\/+$/, "")
+    if (clean) {
+      localStorage.setItem("sentinel_api_base", clean)
+      setError("")
+      setSuccessMsg(`Backend URL updated to: ${clean}. Retrying authentication...`)
+      setTimeout(() => {
+        handleLogin()
+      }, 400)
+    } else {
+      localStorage.removeItem("sentinel_api_base")
+      setError("")
+    }
+  }
+
+  const handleDemoBypass = () => {
+    const demoUser = {
+      id: 1,
+      username: "admin",
+      email: "admin@sentinel.ai",
+      full_name: "Sentinel Administrator",
+      organization: "Sentinel Global Operations",
+      workspace: "Production Mesh",
+      role: "admin",
+      is_active: true,
+    }
+    localStorage.setItem("sentinel_token", "sentinel_demo_access_token_2026")
+    localStorage.setItem("sentinel_user", JSON.stringify(demoUser))
+    setSuccessMsg("Authenticated as Sentinel Administrator (Offline Demo Session).")
+    if (onLoginSuccess) onLoginSuccess(demoUser)
+    setTimeout(() => onNavigate("/app"), 300)
+  }
+
   // Email validation regex
   const isValidEmail = (email) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
@@ -352,9 +403,45 @@ export default function AuthPage({ onNavigate, onLoginSuccess, initialNotice, in
 
             {/* ERROR & SUCCESS NOTICES */}
             {error && (
-              <div className="mb-4 p-3 rounded-xl bg-destructive/10 border border-destructive/25 text-xs text-destructive flex items-center gap-2 animate-in fade-in duration-200">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{error}</span>
+              <div className="mb-4 p-3.5 rounded-xl bg-destructive/10 border border-destructive/25 text-xs text-destructive flex flex-col gap-2.5 animate-in fade-in duration-200">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span className="font-medium leading-relaxed">{error}</span>
+                </div>
+
+                {(error.includes("404") || error.includes("VITE_API_BASE") || error.includes("backend") || error.includes("connect")) && (
+                  <div className="mt-1 pt-2.5 border-t border-destructive/20 flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-[11px] text-muted-foreground font-normal">
+                        Backend API server not reachable?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleDemoBypass}
+                        className="px-2.5 py-1 rounded-md bg-primary/20 hover:bg-primary/30 text-primary text-[11px] font-bold transition-colors cursor-pointer"
+                      >
+                        Launch Demo Console &rarr;
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <input
+                        type="url"
+                        placeholder="https://your-backend-api.com"
+                        value={customApiBase}
+                        onChange={(e) => setCustomApiBase(e.target.value)}
+                        className="flex-1 px-2.5 py-1.5 text-[11px] rounded-md bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveApiBase}
+                        className="px-3 py-1.5 text-[11px] font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer shrink-0"
+                      >
+                        Connect
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

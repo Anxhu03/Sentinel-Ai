@@ -319,6 +319,7 @@ export async function postAuthWithFallback(endpoint, payload) {
 
   // If a non-JSON/HTML response was received from all candidates
   if (lastParsedResult) {
+    let msg = lastParsedResult.errorMessage || null
     if (!msg || lastParsedResult.status === 404 || lastParsedResult.status === 405) {
       if (lastParsedResult.status === 405) {
         msg = !isLocal

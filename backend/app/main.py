@@ -194,6 +194,7 @@ app.include_router(auth.router)
 app.include_router(decision.router)
 
 
+@app.get("/api", tags=["System"])
 @app.get("/", tags=["System"])
 def root():
     return {
@@ -207,6 +208,7 @@ def root():
     }
 
 
+@app.get("/api/health", tags=["System"])
 @app.get("/health", tags=["System"])
 def health():
     """Production-grade health check testing database, docker, and active incidents."""
