@@ -10,8 +10,9 @@ import {
   TriangleAlert,
   Zap,
 } from "lucide-react"
+import { getApiBaseUrl, safeParseResponse } from "../utils/api"
 
-const API_BASE = "http://127.0.0.1:8000"
+const API_BASE = getApiBaseUrl()
 
 const riskClass = (risk) => ({
   Low: "text-success bg-success/10 border-success/20",
@@ -47,11 +48,12 @@ export default function WhatIfSimulationPanel({
       setExecutionError("")
       const response = await fetch(`${API_BASE}/api/incidents/recover`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ action }),
       })
-      if (!response.ok) throw new Error("Recovery request failed")
-      const data = await response.json()
+      const parsed = await safeParseResponse(response)
+      if (!parsed.ok) throw new Error(parsed.errorMessage || "Recovery request failed")
+      const data = parsed.data
       if (data.status === "error") throw new Error(data.message || "Recovery failed")
       setExecutionResult(data)
     } catch (error) {

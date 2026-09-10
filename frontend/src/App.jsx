@@ -49,8 +49,9 @@ import WhatIfSimulationPanel from "./components/WhatIfSimulationPanel"
 import LandingPage from "./pages/LandingPage"
 import AuthPage from "./pages/AuthPage"
 import { ThemeToggle } from "./context/ThemeContext"
+import { getApiBaseUrl, safeParseResponse } from "./utils/api"
 
-const API_BASE = "http://127.0.0.1:8000"
+const API_BASE = getApiBaseUrl()
 
 const ROUTE_ALIASES = {
   "/": "Landing",
@@ -286,14 +287,17 @@ function App() {
 
       try {
         const res = await fetch(`${API_BASE}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
         })
-        if (res.ok) {
-          const freshUser = await res.json()
-          setCurrentUser(freshUser)
-          localStorage.setItem("sentinel_user", JSON.stringify(freshUser))
-        } else {
-          console.warn("Session expired. Clearing credentials.")
+        const parsed = await safeParseResponse(res)
+        if (parsed.ok && parsed.data?.id) {
+          setCurrentUser(parsed.data)
+          localStorage.setItem("sentinel_user", JSON.stringify(parsed.data))
+        } else if (res.status === 401 || res.status === 403) {
+          console.warn("Session expired or invalid. Clearing credentials.")
           localStorage.removeItem("sentinel_token")
           localStorage.removeItem("sentinel_user")
           setCurrentUser(null)
@@ -309,10 +313,12 @@ function App() {
 
   const fetchServices = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/services/`)
-      if (!response.ok) throw new Error("Failed to fetch services")
-      const data = await response.json()
-      setServices(Array.isArray(data) ? data : [])
+      const response = await fetch(`${API_BASE}/api/services/`, {
+        headers: { Accept: "application/json" },
+      })
+      const parsed = await safeParseResponse(response)
+      if (!parsed.ok) throw new Error(parsed.errorMessage || "Failed to fetch services")
+      setServices(Array.isArray(parsed.data) ? parsed.data : [])
       setBackendOnline(true)
     } catch (error) {
       console.error("Services error:", error)
@@ -322,10 +328,12 @@ function App() {
 
   const fetchMetrics = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/metrics/`)
-      if (!response.ok) throw new Error("Failed to fetch metrics")
-      const data = await response.json()
-      setMetrics(data)
+      const response = await fetch(`${API_BASE}/api/metrics/`, {
+        headers: { Accept: "application/json" },
+      })
+      const parsed = await safeParseResponse(response)
+      if (!parsed.ok) throw new Error(parsed.errorMessage || "Failed to fetch metrics")
+      setMetrics(parsed.data)
       setBackendOnline(true)
     } catch (error) {
       console.error("Metrics error:", error)
@@ -357,10 +365,12 @@ function App() {
   const fetchMemory = async () => {
     try {
       setMemoryLoading(true)
-      const response = await fetch(`${API_BASE}/api/memory/?limit=50`)
-      if (!response.ok) throw new Error("Failed to fetch incident memory")
-      const data = await response.json()
-      setMemory(Array.isArray(data.memories) ? data.memories : [])
+      const response = await fetch(`${API_BASE}/api/memory/?limit=50`, {
+        headers: { Accept: "application/json" },
+      })
+      const parsed = await safeParseResponse(response)
+      if (!parsed.ok) throw new Error(parsed.errorMessage || "Failed to fetch incident memory")
+      setMemory(Array.isArray(parsed.data.memories) ? parsed.data.memories : [])
     } catch (error) {
       console.error("Memory error:", error)
     } finally {
@@ -374,10 +384,11 @@ function App() {
       setRecoveryMessage("")
       const response = await fetch(`${API_BASE}/api/incidents/simulate/${incidentType}`, {
         method: "POST",
+        headers: { Accept: "application/json" },
       })
-      if (!response.ok) throw new Error("Incident simulation failed")
-      const data = await response.json()
-      setLastIncident(data)
+      const parsed = await safeParseResponse(response)
+      if (!parsed.ok) throw new Error(parsed.errorMessage || "Incident simulation failed")
+      setLastIncident(parsed.data)
       await fetchServices()
       await fetchMetrics()
       await fetchPrediction()
@@ -394,11 +405,12 @@ function App() {
       setRecovering(true)
       const response = await fetch(`${API_BASE}/api/incidents/recover`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ action }),
       })
-      if (!response.ok) throw new Error("Recovery failed")
-      const data = await response.json()
+      const parsed = await safeParseResponse(response)
+      if (!parsed.ok) throw new Error(parsed.errorMessage || "Recovery failed")
+      const data = parsed.data
       setRecoveryMessage(
         data.status === "no_degraded_services"
           ? "All services are currently healthy."
@@ -427,21 +439,21 @@ function App() {
 
       const response = await fetch(`${API_BASE}/api/simulation/compare`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
           service_name: targetService,
           incident_type: simulationIncident || "payment_failure",
         }),
       })
 
-      if (!response.ok) throw new Error("What-If simulation failed")
-      const data = await response.json()
-      setSimulation(data)
+      const parsed = await safeParseResponse(response)
+      if (!parsed.ok) throw new Error(parsed.errorMessage || "What-If simulation failed")
+      setSimulation(parsed.data)
     } catch (error) {
       console.error("What-If simulation error:", error)
       setSimulation({
         status: "error",
-        message: "Failed to execute What-If simulation.",
+        message: error.message || "Failed to execute What-If simulation.",
       })
     } finally {
       setSimulationLoading(false)

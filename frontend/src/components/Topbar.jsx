@@ -26,8 +26,9 @@ import {
   LogOut,
 } from "lucide-react"
 import { ThemeToggle } from "../context/ThemeContext"
+import { getApiBaseUrl, safeParseResponse } from "../utils/api"
 
-const API_BASE = "http://127.0.0.1:8000"
+const API_BASE = getApiBaseUrl()
 
 const NAVIGATION = [
   {
@@ -162,18 +163,21 @@ export default function Topbar({ onTriggerIncident, user, onLogout }) {
   const fetchNotificationData = async () => {
     try {
       const [metricsResponse, servicesResponse] = await Promise.all([
-        fetch(`${API_BASE}/api/metrics/`),
-        fetch(`${API_BASE}/api/services/`),
+        fetch(`${API_BASE}/api/metrics/`, { headers: { Accept: "application/json" } }),
+        fetch(`${API_BASE}/api/services/`, { headers: { Accept: "application/json" } }),
       ])
 
-      if (metricsResponse.ok) {
-        const metricsData = await metricsResponse.json()
-        setMetrics(metricsData)
+      const [metricsParsed, servicesParsed] = await Promise.all([
+        safeParseResponse(metricsResponse),
+        safeParseResponse(servicesResponse),
+      ])
+
+      if (metricsParsed.ok) {
+        setMetrics(metricsParsed.data)
       }
 
-      if (servicesResponse.ok) {
-        const servicesData = await servicesResponse.json()
-        setServices(Array.isArray(servicesData) ? servicesData : [])
+      if (servicesParsed.ok) {
+        setServices(Array.isArray(servicesParsed.data) ? servicesParsed.data : [])
       }
     } catch (error) {
       console.error("Topbar data error:", error)

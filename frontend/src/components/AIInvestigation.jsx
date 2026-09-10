@@ -21,9 +21,10 @@ import {
   Wrench,
   Zap,
 } from "lucide-react"
+import { getApiBaseUrl, safeParseResponse } from "../utils/api"
 
-const API_BASE = "http://127.0.0.1:8000"
-const MEMORY_API_BASE = "http://127.0.0.1:8000"
+const API_BASE = getApiBaseUrl()
+const MEMORY_API_BASE = API_BASE
 
 function formatValue(value) {
   if (value === null || value === undefined) {
@@ -445,14 +446,16 @@ export default function AIInvestigation({ incident }) {
         params.set("limit", "5")
 
         const response = await fetch(
-          `${MEMORY_API_BASE}/api/memory/similar?${params.toString()}`
+          `${MEMORY_API_BASE}/api/memory/similar?${params.toString()}`,
+          { headers: { Accept: "application/json" } }
         )
 
-        if (!response.ok) {
-          throw new Error("Historical memory request failed")
+        const parsed = await safeParseResponse(response)
+        if (!parsed.ok) {
+          throw new Error(parsed.errorMessage || "Historical memory request failed")
         }
 
-        const data = await response.json()
+        const data = parsed.data
 
         if (cancelled) return
 
@@ -571,15 +574,17 @@ export default function AIInvestigation({ incident }) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
         }
       )
 
-      if (!response.ok) {
-        throw new Error("Recovery request failed")
+      const parsed = await safeParseResponse(response)
+      if (!parsed.ok) {
+        throw new Error(parsed.errorMessage || "Recovery request failed")
       }
 
-      const data = await response.json()
+      const data = parsed.data
 
       setRecoveryMessage(
         data.message ||

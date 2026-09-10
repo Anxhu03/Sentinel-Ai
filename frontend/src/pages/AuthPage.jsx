@@ -19,31 +19,7 @@ import {
   Zap,
 } from "lucide-react"
 import { ThemeToggle } from "../context/ThemeContext"
-
-const API_BASE = "http://127.0.0.1:8000"
-
-const postAuthRequest = async (endpoint, payload) => {
-  const candidates = [
-    endpoint,
-    `${API_BASE}${endpoint}`,
-    `http://localhost:8000${endpoint}`,
-  ]
-
-  let lastError = null
-  for (const url of candidates) {
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      if (res) return res
-    } catch (err) {
-      lastError = err
-    }
-  }
-  throw new Error("Server unavailable. Please verify that the Sentinel AI backend service is online.")
-}
+import { getApiBaseUrl, postAuthWithFallback } from "../utils/api"
 
 export default function AuthPage({ onNavigate, onLoginSuccess, initialNotice, initialMode = "signin" }) {
   const [mode, setMode] = useState(initialMode) // "signin" | "signup"
@@ -94,21 +70,19 @@ export default function AuthPage({ onNavigate, onLoginSuccess, initialNotice, in
     setLoading(true)
 
     try {
-      const response = await postAuthRequest("/api/auth/login", {
+      const result = await postAuthWithFallback("/api/auth/login", {
         email: ident,
         username: ident,
         password: pass,
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
+      if (!result.ok) {
         throw new Error(
-          typeof data.detail === "string"
-            ? data.detail
-            : "Invalid email or password. Please try again."
+          result.errorMessage || "Invalid email or password. Please try again."
         )
       }
+
+      const data = result.data
 
       if (data.access_token) {
         localStorage.setItem("sentinel_token", data.access_token)
@@ -169,7 +143,7 @@ export default function AuthPage({ onNavigate, onLoginSuccess, initialNotice, in
     setLoading(true)
 
     try {
-      const response = await postAuthRequest("/api/auth/signup", {
+      const result = await postAuthWithFallback("/api/auth/signup", {
         name: cleanName,
         email: cleanEmail,
         password: cleanPass,
@@ -178,15 +152,13 @@ export default function AuthPage({ onNavigate, onLoginSuccess, initialNotice, in
         workspace: "Production Mesh",
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
+      if (!result.ok) {
         throw new Error(
-          typeof data.detail === "string"
-            ? data.detail
-            : "Account creation failed. Please check the provided information."
+          result.errorMessage || "Account creation failed. Please check the provided information."
         )
       }
+
+      const data = result.data
 
       if (data.access_token) {
         localStorage.setItem("sentinel_token", data.access_token)

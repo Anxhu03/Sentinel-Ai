@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
+import { getApiBaseUrl, safeParseResponse } from "../utils/api";
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = getApiBaseUrl();
 
 const ACTIONS = [
   {
@@ -72,6 +73,7 @@ export default function AutonomousRemediation({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
           body: JSON.stringify({
             action: selectedAction,
@@ -82,13 +84,15 @@ export default function AutonomousRemediation({
         }
       );
 
-      const data = await response.json();
+      const parsed = await safeParseResponse(response);
 
-      if (!response.ok) {
+      if (!parsed.ok) {
         throw new Error(
-          data?.detail || "Autonomous remediation request failed."
+          parsed.errorMessage || "Autonomous remediation request failed."
         );
       }
+
+      const data = parsed.data;
 
       setResult(data);
       setShowConfirm(false);
