@@ -22,7 +22,7 @@ import {
   Zap,
 } from "lucide-react"
 
-const API_BASE = "http://127.0.0.1:8010"
+const API_BASE = "http://127.0.0.1:8000"
 const MEMORY_API_BASE = "http://127.0.0.1:8000"
 
 function formatValue(value) {
@@ -79,29 +79,29 @@ function getRiskLevel(incident) {
   if (risk >= 70) {
     return {
       label: "Critical",
-      color: "text-red-400",
-      border: "border-red-500/20",
-      bg: "bg-red-500/[0.06]",
-      bar: "bg-red-400",
+      color: "text-rose-400",
+      border: "border-rose-500/30",
+      bg: "bg-rose-500/10",
+      bar: "bg-rose-500",
     }
   }
 
   if (risk >= 40) {
     return {
       label: "Elevated",
-      color: "text-yellow-400",
-      border: "border-yellow-500/20",
-      bg: "bg-yellow-500/[0.05]",
-      bar: "bg-yellow-400",
+      color: "text-amber-400",
+      border: "border-amber-500/30",
+      bg: "bg-amber-500/10",
+      bar: "bg-amber-500",
     }
   }
 
   return {
     label: "Normal",
-    color: "text-[#75E063]",
-    border: "border-[#75E063]/20",
-    bg: "bg-[#75E063]/[0.05]",
-    bar: "bg-[#75E063]",
+    color: "text-emerald-400",
+    border: "border-emerald-500/30",
+    bg: "bg-emerald-500/10",
+    bar: "bg-emerald-500",
   }
 }
 
@@ -145,18 +145,18 @@ function getEvidence(incident) {
 
 function Metric({ icon: Icon, label, value, accent = false }) {
   return (
-    <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4">
+    <div className="rounded-xl border border-border/70 bg-secondary/30 p-4 transition-all duration-200 hover:border-border">
       <div className="flex items-center gap-2">
-        <Icon className="h-3.5 w-3.5 text-gray-600" />
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
 
-        <span className="text-[9px] font-medium uppercase tracking-[0.14em] text-gray-600">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           {label}
         </span>
       </div>
 
       <p
-        className={`mt-3 text-lg font-semibold ${
-          accent ? "text-[#75E063]" : "text-white"
+        className={`mt-2.5 text-lg font-semibold tracking-tight ${
+          accent ? "text-emerald-400" : "text-foreground"
         }`}
       >
         {value}
@@ -176,30 +176,30 @@ function InvestigationStep({
 
   return (
     <div className="relative flex gap-3">
-      <div className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-[#0b0c0f]">
+      <div className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/80 bg-background transition-colors duration-200">
         {isComplete ? (
-          <CheckCircle2 className="h-3.5 w-3.5 text-[#75E063]" />
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
         ) : active ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-400" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
         ) : (
-          <span className="text-[9px] text-gray-600">{number}</span>
+          <span className="text-[10px] font-medium text-muted-foreground">{number}</span>
         )}
       </div>
 
       <div className="pb-5">
         <p
-          className={`text-xs font-medium ${
+          className={`text-xs font-medium transition-colors duration-200 ${
             isComplete
-              ? "text-gray-300"
+              ? "text-foreground/90"
               : active
-                ? "text-violet-300"
-                : "text-gray-600"
+                ? "text-accent"
+                : "text-muted-foreground"
           }`}
         >
           {label}
         </p>
 
-        <p className="mt-1 text-[10px] leading-4 text-gray-600">
+        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
           {description}
         </p>
       </div>
@@ -305,46 +305,46 @@ function HistoricalIntelligence({ memory, loading }) {
           </p>
         </div>
 
-        <div className="rounded-xl border border-[#75E063]/15 bg-[#75E063]/[0.025] p-4">
-          <p className="text-[9px] uppercase tracking-[0.14em] text-gray-600">
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 transition-all duration-200">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Successful recoveries
           </p>
 
-          <p className="mt-2 text-lg font-semibold text-[#75E063]">
+          <p className="mt-2 text-lg font-semibold text-emerald-400">
             {successfulRecoveries}
           </p>
         </div>
 
-        <div className="rounded-xl border border-violet-400/15 bg-violet-400/[0.025] p-4">
-          <p className="text-[9px] uppercase tracking-[0.14em] text-gray-600">
+        <div className="rounded-xl border border-accent/20 bg-accent/5 p-4 transition-all duration-200">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Historical confidence
           </p>
 
-          <p className="mt-2 text-lg font-semibold text-violet-300">
+          <p className="mt-2 text-lg font-semibold text-accent">
             {historicalConfidence}%
           </p>
         </div>
       </div>
 
-      <div className="mt-4 rounded-xl border border-violet-400/15 bg-gradient-to-br from-violet-500/[0.055] via-white/[0.018] to-transparent p-5">
-        <p className="text-[9px] font-medium uppercase tracking-[0.15em] text-violet-300">
+      <div className="mt-4 rounded-xl border border-accent/20 bg-accent/5 p-5">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">
           Historical insight
         </p>
 
-        <p className="mt-3 text-sm leading-6 text-gray-300">
+        <p className="mt-2.5 text-sm leading-relaxed text-foreground/90">
           {insight.insight}
         </p>
 
         {recommendedAction && (
-          <div className="mt-4 flex items-start gap-3 rounded-lg border border-[#75E063]/15 bg-[#75E063]/[0.035] p-4">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#75E063]" />
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
 
             <div>
-              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-[#75E063]">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
                 Previously successful action
               </p>
 
-              <p className="mt-1 text-sm font-medium text-white">
+              <p className="mt-1 text-sm font-medium text-foreground">
                 {formatValue(recommendedAction)}
               </p>
             </div>
@@ -601,15 +601,15 @@ export default function AIInvestigation({ incident }) {
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-violet-400/15 bg-[#0b0c0f] shadow-[0_0_50px_rgba(0,0,0,0.20)]">
+    <section className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm transition-all duration-300">
       {/* HEADER */}
-      <div className="relative overflow-hidden border-b border-white/[0.07] p-6">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-violet-500/[0.06] blur-3xl" />
+      <div className="relative overflow-hidden border-b border-border/70 p-6">
+        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent/5 blur-3xl" />
 
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-400/[0.08]">
-              <BrainCircuit className="h-5 w-5 text-violet-300" />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent/10 shadow-sm">
+              <BrainCircuit className="h-5 w-5 text-accent" />
             </div>
 
             <div>
@@ -733,39 +733,39 @@ export default function AIInvestigation({ incident }) {
         {/* ROOT CAUSE */}
         <div>
           <div className="mb-5 flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[#75E063]" />
+            <ShieldCheck className="h-4 w-4 text-emerald-400" />
 
-            <p className="text-xs font-medium text-gray-300">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Root cause assessment
             </p>
           </div>
 
-          <div className="rounded-xl border border-[#75E063]/15 bg-[#75E063]/[0.025] p-5">
-            <p className="text-[9px] font-medium uppercase tracking-[0.15em] text-[#75E063]">
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5 transition-all duration-200">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
               Probable root cause
             </p>
 
-            <p className="mt-3 text-sm font-medium leading-6 text-white">
+            <p className="mt-2.5 text-sm font-medium leading-relaxed text-foreground">
               {formatValue(rootCause)}
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-white/[0.06] bg-black/10 p-3">
-                <p className="text-[9px] uppercase tracking-wider text-gray-600">
+              <div className="rounded-lg border border-border/70 bg-secondary/40 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                   Confidence
                 </p>
 
-                <p className="mt-1 text-sm font-semibold text-[#75E063]">
+                <p className="mt-1 text-sm font-semibold text-emerald-400">
                   {confidence}%
                 </p>
               </div>
 
-              <div className="rounded-lg border border-white/[0.06] bg-black/10 p-3">
-                <p className="text-[9px] uppercase tracking-wider text-gray-600">
+              <div className="rounded-lg border border-border/70 bg-secondary/40 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                   Detection
                 </p>
 
-                <p className="mt-1 text-sm font-semibold text-gray-300">
+                <p className="mt-1 text-sm font-semibold text-foreground">
                   Sentinel AI
                 </p>
               </div>
@@ -819,7 +819,7 @@ export default function AIInvestigation({ incident }) {
                     key={index}
                     className="flex items-start gap-3"
                   >
-                    <CircleDot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#75E063]" />
+                    <CircleDot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
 
                     <p className="text-xs leading-5 text-gray-400">
                       {formatValue(item)}
@@ -866,7 +866,7 @@ export default function AIInvestigation({ incident }) {
             <button
               type="button"
               onClick={() => setExpanded(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-xs font-medium text-gray-300 transition hover:border-white/[0.14] hover:bg-white/[0.06] hover:text-white"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-secondary/40 px-4 py-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-border hover:bg-secondary hover:text-foreground active:scale-[0.98]"
             >
               <Sparkles className="h-3.5 w-3.5" />
               Review
@@ -876,7 +876,7 @@ export default function AIInvestigation({ incident }) {
               type="button"
               onClick={handleRemediate}
               disabled={remediating}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#75E063]/20 bg-[#75E063]/[0.08] px-4 py-3 text-xs font-medium text-[#75E063] transition hover:border-[#75E063]/35 hover:bg-[#75E063]/[0.13] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs font-medium text-emerald-400 transition-all duration-200 hover:border-emerald-500/50 hover:bg-emerald-500/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {remediating ? (
                 <>
@@ -894,15 +894,15 @@ export default function AIInvestigation({ incident }) {
         </div>
 
         {recoveryMessage && (
-          <div className="mt-5 flex items-start gap-3 rounded-xl border border-[#75E063]/20 bg-[#75E063]/[0.05] p-4">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#75E063]" />
+          <div className="mt-5 flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 animate-in fade-in duration-300">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
 
             <div>
-              <p className="text-xs font-medium text-[#75E063]">
+              <p className="text-xs font-medium text-emerald-400">
                 Recovery initiated
               </p>
 
-              <p className="mt-1 text-[10px] leading-4 text-gray-500">
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                 {recoveryMessage}
               </p>
             </div>

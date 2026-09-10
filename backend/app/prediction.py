@@ -210,15 +210,23 @@ def predict_incident(
     risk_score = min(risk_score, 100)
 
     # -----------------------------
-    # WARNING LEVEL
+    # WARNING & RISK LEVEL
     # -----------------------------
 
     if risk_score >= 70:
         warning_level = "critical"
+        risk_level = "Critical"
     elif risk_score >= 40:
         warning_level = "elevated"
+        risk_level = "High"
+    elif risk_score >= 20:
+        warning_level = "normal"
+        risk_level = "Normal"
     else:
         warning_level = "normal"
+        risk_level = "Low"
+
+    incident_imminent = bool(risk_score >= 70 or incident_active)
 
     # -----------------------------
     # PREDICTED INCIDENT
@@ -326,6 +334,8 @@ def predict_incident(
     return {
         "risk_score": risk_score,
         "warning_level": warning_level,
+        "risk_level": risk_level,
+        "incident_imminent": incident_imminent,
         "predicted_incident": predicted_incident,
         "confidence": confidence,
         "signals": signals,

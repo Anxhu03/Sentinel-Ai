@@ -1,0 +1,111 @@
+services:
+  # =========================================================
+  # 1. DATABASE
+  # =========================================================
+  postgres:
+    image: postgres:16
+    container_name: sentinel-postgres
+    environment:
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD: sentinel_dev_password
+      POSTGRES_DB: sentinel_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinel_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # =========================================================
+  # 2. SENTINEL AI BACKEND CONTROL PLANE
+  # =========================================================
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: sentinel-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://sentinel:sentinel_dev_password@postgres:5432/sentinel_db
+      - SENTINEL_ENV=production
+      - DOCKER_TIMEOUT=30
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # =========================================================
+  # 3. SENTINEL AI FRONTEND DASHBOARD
+  # =========================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sentinel-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # =========================================================
+  # 4. TARGET DISTRIBUTED MICROSERVICES
+  # =========================================================
+  auth-service:
+    build: ./services/auth-service
+    container_name: sentinel-ai-auth-service-1
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+
+  product-service:
+    build: ./services/product-service
+    container_name: sentinel-ai-product-service-1
+    ports:
+      - "8002:8002"
+    restart: unless-stopped
+
+  inventory-service:
+    build: ./services/inventory-service
+    container_name: sentinel-ai-inventory-service-1
+    ports:
+      - "8003:8003"
+    restart: unless-stopped
+
+  payment-service:
+    build: ./services/payment-service
+    container_name: sentinel-ai-payment-service-1
+    ports:
+      - "8004:8004"
+    restart: unless-stopped
+
+  order-service:
+    build: ./services/order-service
+    container_name: sentinel-ai-order-service-1
+    ports:
+      - "8005:8005"
+    restart: unless-stopped
+
+  shipping-service:
+    build: ./services/shipping-service
+    container_name: sentinel-ai-shipping-service-1
+    ports:
+      - "8006:8006"
+    restart: unless-stopped
+
+  notification-service:
+    build: ./services/notification-service
+    container_name: sentinel-ai-notification-service-1
+    ports:
+      - "8007:8007"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

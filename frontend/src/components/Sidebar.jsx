@@ -3,15 +3,16 @@ import {
   Brain,
   ChevronLeft,
   ChevronRight,
-  CircleGauge,
   Database,
   GitBranch,
   History,
   LayoutDashboard,
+  Radio,
   Settings,
+  Shield,
   ShieldCheck,
-  Siren,
   Wrench,
+  Sparkles,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 
@@ -26,17 +27,14 @@ const primaryNavigation = [
 ]
 
 const systemNavigation = [
-  { label: "System Health", icon: ShieldCheck },
-  { label: "Settings", icon: Settings },
+  { label: "Public Site", icon: Sparkles, page: "Landing" },
+  { label: "System Health", icon: ShieldCheck, page: "System Health" },
+  { label: "Settings", icon: Settings, page: "Settings" },
 ]
 
 const getCurrentPage = () => {
   const hash = window.location.hash.replace(/^#/, "")
-
-  if (!hash) {
-    return "Overview"
-  }
-
+  if (!hash) return "Overview"
   try {
     return decodeURIComponent(hash)
   } catch {
@@ -44,22 +42,8 @@ const getCurrentPage = () => {
   }
 }
 
-export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false)
+export default function Sidebar({ collapsed, onToggleCollapse }) {
   const [active, setActive] = useState(getCurrentPage)
-
-  useEffect(() => {
-    document.documentElement.style.setProperty(
-      "--sentinel-sidebar-width",
-      collapsed ? "76px" : "252px"
-    )
-
-    return () => {
-      document.documentElement.style.removeProperty(
-        "--sentinel-sidebar-width"
-      )
-    }
-  }, [collapsed])
 
   useEffect(() => {
     const handleNavigation = () => {
@@ -67,7 +51,6 @@ export default function Sidebar() {
     }
 
     window.addEventListener("hashchange", handleNavigation)
-
     return () => {
       window.removeEventListener("hashchange", handleNavigation)
     }
@@ -75,223 +58,193 @@ export default function Sidebar() {
 
   const navigate = (label) => {
     setActive(label)
-
     const newHash = encodeURIComponent(label)
-
     if (window.location.hash.replace("#", "") === newHash) {
       window.dispatchEvent(new HashChangeEvent("hashchange"))
       return
     }
-
     window.location.hash = newHash
   }
 
   return (
     <aside
-      className={`sentinel-sidebar sticky top-0 z-50 flex h-dvh min-h-0 shrink-0 flex-col overflow-hidden border-r border-white/[0.07] bg-[#08090D] transition-[width] duration-300 ${
-        collapsed ? "w-[76px]" : "w-[252px]"
+      className={`fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-out flex flex-col ${
+        collapsed ? "w-[72px]" : "w-[260px]"
       }`}
     >
-      {/* AMBIENT GLOW */}
-      <div className="pointer-events-none absolute left-0 top-0 h-72 w-full overflow-hidden">
-        <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-violet-600/[0.08] blur-3xl" />
-        <div className="absolute right-0 top-16 h-40 w-40 rounded-full bg-indigo-500/[0.05] blur-3xl" />
-      </div>
-
-      {/* BRAND */}
-      <div className="relative flex h-[76px] shrink-0 items-center border-b border-white/[0.07] px-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-violet-400/20 bg-gradient-to-br from-violet-500/15 via-indigo-500/10 to-[#75E063]/10 shadow-[0_0_25px_rgba(139,92,246,0.08)]">
-            <CircleGauge className="h-[18px] w-[18px] text-violet-300" />
-
-            <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-[#75E063] shadow-[0_0_8px_#75E063]" />
+      {/* BRAND HEADER */}
+      <div className="h-16 flex items-center px-4 border-b border-sidebar-border shrink-0">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-primary text-primary-foreground shadow-sm shadow-primary/30">
+            <Shield className="w-5 h-5 text-white" />
           </div>
 
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="truncate text-[14px] font-semibold tracking-tight text-white">
-                Sentinel AI
-              </p>
-
-              <p className="mt-0.5 truncate text-[8px] font-medium uppercase tracking-[0.24em] text-violet-300/50">
-                Operations Core
-              </p>
-            </div>
-          )}
+          <div
+            className={`transition-all duration-300 ease-out flex flex-col ${
+              collapsed ? "opacity-0 w-0 pointer-events-none" : "opacity-100 w-auto"
+            }`}
+          >
+            <span className="font-semibold text-base text-sidebar-foreground tracking-tight whitespace-nowrap">
+              Sentinel AI
+            </span>
+            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider whitespace-nowrap">
+              Operations Core
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* WORKSPACE */}
-      {!collapsed && (
-        <div className="relative shrink-0 px-4 pt-5">
-          <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-gradient-to-br from-violet-500/[0.055] via-white/[0.018] to-[#75E063]/[0.025] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className="h-2 w-2 shrink-0 rounded-full bg-[#75E063] shadow-[0_0_9px_#75E063]" />
+      {/* NAVIGATION ITEMS */}
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto overflow-x-hidden">
+        {!collapsed && (
+          <div className="px-3 py-1 mb-1">
+            <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
+              Operations
+            </span>
+          </div>
+        )}
 
-                <div className="min-w-0">
-                  <p className="text-[10px] font-medium text-gray-300">
-                    Production
-                  </p>
+        {primaryNavigation.map((item) => {
+          const Icon = item.icon
+          const isActive = active === item.label
 
-                  <p className="mt-0.5 text-[8px] text-gray-600">
-                    Live environment
-                  </p>
-                </div>
-              </div>
+          return (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => navigate(item.label)}
+              title={collapsed ? item.label : undefined}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative ${
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+              }`}
+            >
+              {/* ACTIVE LEFT PILL */}
+              <span
+                className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-accent transition-all duration-300 ${
+                  isActive ? "opacity-100" : "opacity-0"
+                }`}
+              />
 
-              <span className="shrink-0 rounded-md border border-[#75E063]/15 bg-[#75E063]/[0.05] px-2 py-1 text-[7px] font-semibold uppercase tracking-wider text-[#75E063]">
-                Live
+              <Icon
+                className={`w-5 h-5 shrink-0 transition-transform duration-200 ${
+                  isActive
+                    ? "text-accent"
+                    : "text-muted-foreground group-hover:text-sidebar-foreground group-hover:scale-110"
+                }`}
+              />
+
+              <span
+                className={`whitespace-nowrap transition-all duration-300 truncate text-left flex-1 ${
+                  collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
+                }`}
+              >
+                {item.label}
               </span>
-            </div>
+
+              {!collapsed && item.badge && (
+                <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent/15 text-accent border border-accent/20">
+                  {item.badge}
+                </span>
+              )}
+            </button>
+          )
+        })}
+
+        <div className="pt-4 pb-2">
+          <div className="h-px bg-sidebar-border/80 my-1 mx-2" />
+        </div>
+
+        {!collapsed && (
+          <div className="px-3 py-1 mb-1">
+            <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
+              System
+            </span>
           </div>
-        </div>
-      )}
-
-      {/* NAVIGATION */}
-      <nav className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-6 [scrollbar-width:thin]">
-        {!collapsed && (
-          <p className="mb-3 px-3 text-[8px] font-semibold uppercase tracking-[0.2em] text-gray-700">
-            Workspace
-          </p>
         )}
 
-        <div className="space-y-1">
-          {primaryNavigation.map((item) => {
-            const Icon = item.icon
-            const isActive = active === item.label
+        {systemNavigation.map((item) => {
+          const Icon = item.icon
+          const targetPage = item.page || item.label
+          const isActive = active === targetPage
 
-            return (
-              <button
-                key={item.label}
-                type="button"
-                onClick={() => navigate(item.label)}
-                title={collapsed ? item.label : undefined}
-                className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-200 ${
+          return (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => navigate(targetPage)}
+              title={collapsed ? item.label : undefined}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative ${
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+              }`}
+            >
+              <span
+                className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-accent transition-all duration-300 ${
+                  isActive ? "opacity-100" : "opacity-0"
+                }`}
+              />
+
+              <Icon
+                className={`w-5 h-5 shrink-0 transition-transform duration-200 ${
                   isActive
-                    ? "border border-violet-400/15 bg-gradient-to-r from-violet-500/[0.13] via-indigo-500/[0.07] to-transparent text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]"
-                    : "border border-transparent text-gray-600 hover:border-white/[0.05] hover:bg-white/[0.025] hover:text-gray-300"
+                    ? "text-accent"
+                    : "text-muted-foreground group-hover:text-sidebar-foreground group-hover:scale-110"
+                }`}
+              />
+
+              <span
+                className={`whitespace-nowrap transition-all duration-300 truncate text-left flex-1 ${
+                  collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
                 }`}
               >
-                {isActive && (
-                  <span className="absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-r-full bg-violet-300 shadow-[0_0_10px_rgba(167,139,250,0.7)]" />
-                )}
-
-                <Icon
-                  className={`h-[17px] w-[17px] shrink-0 transition-colors ${
-                    isActive
-                      ? "text-violet-300"
-                      : "text-gray-700 group-hover:text-gray-400"
-                  }`}
-                />
-
-                {!collapsed && (
-                  <>
-                    <span className="min-w-0 flex-1 truncate text-[11px] font-medium">
-                      {item.label}
-                    </span>
-
-                    {item.badge && (
-                      <span className="shrink-0 rounded-md border border-violet-400/15 bg-violet-400/[0.06] px-1.5 py-0.5 text-[7px] font-semibold text-violet-300">
-                        {item.badge}
-                      </span>
-                    )}
-                  </>
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="my-6 h-px shrink-0 bg-white/[0.06]" />
-
-        {!collapsed && (
-          <p className="mb-3 px-3 text-[8px] font-semibold uppercase tracking-[0.2em] text-gray-700">
-            System
-          </p>
-        )}
-
-        <div className="space-y-1">
-          {systemNavigation.map((item) => {
-            const Icon = item.icon
-            const isActive = active === item.label
-
-            return (
-              <button
-                key={item.label}
-                type="button"
-                onClick={() => navigate(item.label)}
-                title={collapsed ? item.label : undefined}
-                className={`group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${
-                  isActive
-                    ? "border-violet-400/15 bg-violet-500/[0.08] text-white"
-                    : "border-transparent text-gray-600 hover:border-white/[0.05] hover:bg-white/[0.025] hover:text-gray-300"
-                }`}
-              >
-                <Icon
-                  className={`h-[17px] w-[17px] shrink-0 ${
-                    isActive
-                      ? "text-violet-300"
-                      : "text-gray-700 group-hover:text-gray-400"
-                  }`}
-                />
-
-                {!collapsed && (
-                  <span className="truncate text-[11px] font-medium">
-                    {item.label}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
+                {item.label}
+              </span>
+            </button>
+          )
+        })}
       </nav>
 
-      {/* ENGINE STATUS */}
+      {/* SYSTEM STATUS PILL (WHEN EXPANDED) */}
       {!collapsed && (
-        <div className="relative mx-3 mb-3 shrink-0 overflow-hidden rounded-xl border border-white/[0.07] bg-gradient-to-br from-[#75E063]/[0.045] via-white/[0.018] to-violet-500/[0.04] p-3.5">
-          <div className="absolute right-0 top-0 h-16 w-16 rounded-full bg-[#75E063]/[0.04] blur-2xl" />
-
-          <div className="relative flex items-center gap-2.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#75E063]/15 bg-[#75E063]/[0.05]">
-              <Siren className="h-3.5 w-3.5 text-[#75E063]" />
-            </div>
-
-            <div className="min-w-0">
-              <p className="truncate text-[9px] font-medium text-gray-300">
-                Sentinel Engine
-              </p>
-
-              <div className="mt-1 flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#75E063] shadow-[0_0_7px_#75E063]" />
-
-                <span className="text-[8px] text-[#75E063]">
-                  Operational
-                </span>
+        <div className="p-3 mx-3 mb-2 rounded-xl bg-secondary/50 border border-border/60 transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+              </span>
+              <div className="truncate">
+                <p className="text-xs font-medium text-sidebar-foreground truncate">
+                  Mesh Connected
+                </p>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  7 Services Active
+                </p>
               </div>
             </div>
+            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-success/10 text-success border border-success/20">
+              Live
+            </span>
           </div>
         </div>
       )}
 
-      {/* COLLAPSE */}
-      <div className="shrink-0 border-t border-white/[0.07] p-3">
+      {/* COLLAPSE TOGGLE FOOTER */}
+      <div className="p-3 border-t border-sidebar-border shrink-0">
         <button
           type="button"
-          onClick={() =>
-            setCollapsed((value) => !value)
-          }
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] py-2 text-gray-600 transition hover:border-white/[0.1] hover:bg-white/[0.04] hover:text-gray-300"
+          onClick={onToggleCollapse}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all duration-200 cursor-pointer"
         >
           {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="w-5 h-5 transition-transform duration-200" />
           ) : (
             <>
-              <ChevronLeft className="h-4 w-4" />
-
-              <span className="text-[9px] font-medium">
-                Collapse
-              </span>
+              <ChevronLeft className="w-5 h-5 transition-transform duration-200" />
+              <span className="whitespace-nowrap text-sm font-medium">Collapse</span>
             </>
           )}
         </button>

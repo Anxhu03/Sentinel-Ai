@@ -1,12 +1,13 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+from backend.app.config import settings
 
-DATABASE_URL = (
-    "postgresql://sentinel:sentinel_dev_password"
-    "@localhost:5432/sentinel_db"
+engine = create_engine(
+    settings.DATABASE_URL,
+    pool_pre_ping=True,
+    pool_size=10,
+    max_overflow=20,
 )
-
-engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(
     autocommit=False,
@@ -15,3 +16,11 @@ SessionLocal = sessionmaker(
 )
 
 Base = declarative_base()
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

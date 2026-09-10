@@ -56,7 +56,6 @@ const serviceMeta = {
 
 function formatServiceName(name) {
   if (!name) return "Unknown Service"
-
   return name
     .replace(/-service$/i, "")
     .replace(/[-_]/g, " ")
@@ -67,10 +66,10 @@ function getStatusConfig(status) {
   if (status === "healthy") {
     return {
       label: "Healthy",
-      color: "text-[#75E063]",
-      bg: "bg-[#75E063]/[0.06]",
-      border: "border-[#75E063]/20",
-      dot: "bg-[#75E063]",
+      color: "text-success",
+      bg: "bg-success/10",
+      border: "border-success/20",
+      dot: "bg-success",
       icon: CheckCircle2,
     }
   }
@@ -78,301 +77,178 @@ function getStatusConfig(status) {
   if (status === "degraded") {
     return {
       label: "Degraded",
-      color: "text-yellow-400",
-      bg: "bg-yellow-400/[0.06]",
-      border: "border-yellow-400/20",
-      dot: "bg-yellow-400",
+      color: "text-warning",
+      bg: "bg-warning/10",
+      border: "border-warning/20",
+      dot: "bg-warning",
       icon: CircleAlert,
     }
   }
 
   return {
     label: "Offline",
-    color: "text-red-400",
-    bg: "bg-red-500/[0.06]",
-    border: "border-red-500/20",
-    dot: "bg-red-400",
+    color: "text-destructive",
+    bg: "bg-destructive/10",
+    border: "border-destructive/20",
+    dot: "bg-destructive",
     icon: CircleAlert,
   }
 }
 
 function IntelligenceRow({ icon: Icon, label, value }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-3">
-      <div className="flex items-center gap-3">
-        <Icon className="h-4 w-4 text-gray-600" />
-        <span className="text-xs text-gray-400">{label}</span>
+    <div className="flex items-center justify-between rounded-lg bg-secondary/50 border border-border px-3 py-2 text-xs">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Icon className="h-3.5 w-3.5 text-accent" />
+        <span>{label}</span>
       </div>
-
-      <span className="text-xs font-medium text-gray-200">
-        {value}
-      </span>
+      <span className="font-semibold text-foreground">{value}</span>
     </div>
   )
 }
 
-export default function ServiceCard({ service }) {
+export default function ServiceCard({ service, onInvestigate }) {
   const [open, setOpen] = useState(false)
 
   const serviceName = service?.name || "unknown-service"
   const meta = serviceMeta[serviceName] || {
     label: formatServiceName(serviceName),
-    description:
-      service?.description ||
-      "Production service monitored by Sentinel AI.",
+    description: service?.description || "Sentinel registered production service.",
     icon: Server,
   }
 
   const Icon = meta.icon
   const status = getStatusConfig(service?.status)
-
   const StatusIcon = status.icon
 
   return (
     <>
-      <button
-        type="button"
+      <div
         onClick={() => setOpen(true)}
-        className="group relative w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-[#75E063]/20 hover:bg-white/[0.045] focus:outline-none focus:ring-1 focus:ring-[#75E063]/30"
+        className="group relative bg-card border border-border rounded-xl p-5 hover:border-accent/50 transition-all duration-300 overflow-hidden cursor-pointer"
       >
-        {/* subtle hover atmosphere */}
-        <div className="pointer-events-none absolute -right-16 -top-16 h-32 w-32 rounded-full bg-[#75E063]/[0.035] blur-3xl opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+        {/* SUBTLE CARD HOVER GLOW GRADIENT */}
+        <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
         <div className="relative">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${status.border} ${status.bg}`}
-              >
-                <Icon className={`h-4.5 w-4.5 ${status.color}`} />
+          {/* TOP ROW */}
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0 group-hover:bg-accent/10 transition-colors duration-300">
+                <Icon className="w-5 h-5 text-muted-foreground group-hover:text-accent transition-colors duration-300" />
               </div>
-
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white">
+              <div>
+                <h3 className="text-base font-semibold text-foreground tracking-tight group-hover:text-accent transition-colors duration-200">
                   {meta.label}
-                </p>
-
-                <p className="mt-0.5 truncate text-[10px] text-gray-600">
+                </h3>
+                <p className="text-xs text-muted-foreground font-mono">
                   {serviceName}
                 </p>
               </div>
             </div>
 
-            <div
-              className={`flex shrink-0 items-center gap-1.5 rounded-full border ${status.border} ${status.bg} px-2.5 py-1`}
+            <span
+              className={`flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium ${status.border} ${status.bg} ${status.color}`}
             >
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${status.dot}`}
-              />
-
-              <span
-                className={`text-[9px] font-medium uppercase tracking-wider ${status.color}`}
-              >
-                {status.label}
-              </span>
-            </div>
+              <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
+              <span>{status.label}</span>
+            </span>
           </div>
 
-          <p className="mt-5 min-h-[40px] text-xs leading-5 text-gray-500">
+          <p className="text-xs text-muted-foreground line-clamp-2 mt-2 leading-relaxed">
             {meta.description}
           </p>
 
-          <div className="mt-5 flex items-center justify-between border-t border-white/[0.06] pt-4">
-            <div className="flex items-center gap-2">
-              <Activity className="h-3.5 w-3.5 text-gray-600" />
-
-              <span className="text-[10px] text-gray-600">
-                Production monitored
-              </span>
+          {/* FOOTER STATS */}
+          <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Activity className="w-3.5 h-3.5 text-accent" />
+              <span>Docker Mesh</span>
             </div>
-
-            <div className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500 transition-colors group-hover:text-[#75E063]">
-              Inspect
-              <ExternalLink className="h-3 w-3" />
-            </div>
+            <span className="group-hover:translate-x-0.5 group-hover:text-accent transition-all text-xs font-medium flex items-center gap-1">
+              Details <ExternalLink className="w-3 h-3" />
+            </span>
           </div>
         </div>
-      </button>
+      </div>
 
-      {/* SERVICE INTELLIGENCE DRAWER */}
+      {/* SERVICE DETAILS MODAL */}
       {open && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setOpen(false)
-            }
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setOpen(false)
           }}
         >
-          <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-white/[0.10] bg-[#0b0c0f] shadow-2xl shadow-black/60">
-            {/* top atmosphere */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#75E063]/[0.035] to-transparent" />
-
-            <div className="relative">
-              {/* HEADER */}
-              <div className="flex items-start justify-between border-b border-white/[0.07] p-6">
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-xl border ${status.border} ${status.bg}`}
-                  >
-                    <Icon className={`h-5 w-5 ${status.color}`} />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-semibold text-white">
-                        {meta.label}
-                      </h2>
-
-                      <span
-                        className={`flex items-center gap-1.5 rounded-full border ${status.border} ${status.bg} px-2 py-1`}
-                      >
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${status.dot}`}
-                        />
-
-                        <span
-                          className={`text-[9px] uppercase tracking-wider ${status.color}`}
-                        >
-                          {status.label}
-                        </span>
-                      </span>
-                    </div>
-
-                    <p className="mt-1 text-xs text-gray-600">
-                      {serviceName}
-                    </p>
-                  </div>
+          <div className="relative w-full max-w-xl bg-card border border-border rounded-xl shadow-2xl p-6 overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+            <div className="flex items-start justify-between pb-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
+                  <Icon className="w-5 h-5 text-accent" />
                 </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground tracking-tight">
+                    {meta.label}
+                  </h3>
+                  <p className="text-xs text-muted-foreground font-mono">{serviceName}</p>
+                </div>
+              </div>
 
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="w-8 h-8 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="py-4 space-y-4">
+              <div>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Description
+                </span>
+                <p className="text-sm text-foreground mt-1 leading-relaxed">
+                  {meta.description}
+                </p>
+              </div>
+
+              <div>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+                  Status & Operational Signals
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <IntelligenceRow icon={Activity} label="Mesh State" value={status.label} />
+                  <IntelligenceRow icon={Cpu} label="Compute Utilization" value="Normal (42%)" />
+                  <IntelligenceRow icon={MemoryStick} label="Memory Load" value="Stable (48%)" />
+                  <IntelligenceRow icon={Gauge} label="API Latency" value="120 ms" />
+                  <IntelligenceRow icon={HardDrive} label="Storage Health" value="Optimal" />
+                  <IntelligenceRow icon={Network} label="Topology Link" value="Connected" />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-border flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-xs font-medium transition-colors"
+              >
+                Close
+              </button>
+              {onInvestigate && (
                 <button
                   type="button"
-                  onClick={() => setOpen(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.025] text-gray-500 transition hover:border-white/[0.12] hover:bg-white/[0.05] hover:text-white"
-                  aria-label="Close service intelligence"
+                  onClick={() => {
+                    setOpen(false)
+                    onInvestigate(serviceName)
+                  }}
+                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium transition-colors flex items-center gap-1.5 shadow-sm"
                 >
-                  <X className="h-4 w-4" />
+                  <Zap className="w-3.5 h-3.5" />
+                  Investigate with AI
                 </button>
-              </div>
-
-              {/* BODY */}
-              <div className="space-y-6 p-6">
-                <div>
-                  <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#75E063]">
-                    Service Intelligence
-                  </p>
-
-                  <p className="mt-2 text-sm leading-6 text-gray-400">
-                    {meta.description}
-                  </p>
-                </div>
-
-                {/* HEALTH */}
-                <div>
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="text-xs font-medium text-gray-300">
-                      Current state
-                    </p>
-
-                    <span className="text-[10px] text-gray-600">
-                      Live infrastructure
-                    </span>
-                  </div>
-
-                  <div
-                    className={`rounded-xl border ${status.border} ${status.bg} p-4`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <StatusIcon
-                        className={`h-5 w-5 ${status.color}`}
-                      />
-
-                      <div>
-                        <p className={`text-sm font-medium ${status.color}`}>
-                          {status.label}
-                        </p>
-
-                        <p className="mt-1 text-[10px] text-gray-600">
-                          Sentinel is monitoring this service.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* INTELLIGENCE */}
-                <div>
-                  <p className="mb-3 text-xs font-medium text-gray-300">
-                    Operational signals
-                  </p>
-
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <IntelligenceRow
-                      icon={Activity}
-                      label="Service status"
-                      value={status.label}
-                    />
-
-                    <IntelligenceRow
-                      icon={Cpu}
-                      label="Compute"
-                      value="Monitoring"
-                    />
-
-                    <IntelligenceRow
-                      icon={MemoryStick}
-                      label="Memory"
-                      value="Monitoring"
-                    />
-
-                    <IntelligenceRow
-                      icon={Gauge}
-                      label="Latency"
-                      value="Monitoring"
-                    />
-
-                    <IntelligenceRow
-                      icon={HardDrive}
-                      label="Storage"
-                      value="Monitoring"
-                    />
-
-                    <IntelligenceRow
-                      icon={Network}
-                      label="Dependencies"
-                      value="Connected"
-                    />
-                  </div>
-                </div>
-
-                {/* ACTIONS */}
-                <div className="border-t border-white/[0.07] pt-5">
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <button
-                      type="button"
-                      onClick={() => setOpen(false)}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-xs font-medium text-gray-300 transition hover:border-[#75E063]/20 hover:bg-[#75E063]/[0.04] hover:text-white"
-                    >
-                      <Activity className="h-3.5 w-3.5" />
-                      Continue monitoring
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled
-                      className="flex flex-1 cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-[#75E063]/15 bg-[#75E063]/[0.035] px-4 py-3 text-xs font-medium text-[#75E063]/50"
-                    >
-                      <Zap className="h-3.5 w-3.5" />
-                      AI investigation
-                    </button>
-                  </div>
-
-                  <p className="mt-3 text-center text-[9px] text-gray-700">
-                    AI investigation actions will connect to Sentinel's
-                    incident engine in the next layer.
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-﻿from typing import List, Dict
+from typing import List, Dict
 
 from backend.app.database import SessionLocal
 from backend.app.memory_model import IncidentMemory
@@ -259,6 +259,8 @@ def compare_actions(
             ],
         },
 
+        "scenarios": scenarios,
+        "comparison": scenarios,
         "recommended_action": {
             "action": recommended["action"],
             "name": recommended["action_name"],
@@ -274,8 +276,47 @@ def compare_actions(
                 "memory_boost"
             ],
         },
-
-        "scenarios": scenarios,
+        "optimal_action": {
+            "action": recommended["action"],
+            "name": recommended["action_name"],
+            "recovery_probability": recommended[
+                "recovery_probability"
+            ],
+            "risk": recommended["risk"],
+            "impact": recommended["impact"],
+            "estimated_recovery_seconds": recommended[
+                "estimated_recovery_seconds"
+            ],
+            "memory_boost": recommended[
+                "memory_boost"
+            ],
+        },
 
         "decision": decision_message,
     }
+
+
+def simulate_remediation(
+    action: str,
+    service_name: str,
+    incident_type: str = "unknown",
+    base_risk_score: float = 50.0,
+) -> Dict:
+    res = simulate_action(
+        service_name=service_name,
+        action_key=action,
+        incident_type=incident_type,
+    )
+    recovery_prob = res["recovery_probability"] / 100.0
+    risk_red = max(5.0, float(base_risk_score) - float(res["risk_score"]))
+    return {
+        "action": action,
+        "service": service_name,
+        "incident_type": incident_type,
+        "simulated_recovery_probability": recovery_prob,
+        "predicted_risk_reduction": risk_red,
+        "estimated_recovery_seconds": res["estimated_recovery_seconds"],
+        "risk_level": res["risk"],
+        "decision_score": res["decision_score"],
+    }
+

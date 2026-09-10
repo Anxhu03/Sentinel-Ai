@@ -1,64 +1,98 @@
+import { AlertTriangle, CheckCircle2, TrendingDown, TrendingUp } from "lucide-react"
+
 export default function MetricCard({
   title,
   value,
   subtitle,
   icon: Icon,
   status,
+  trend,
+  trendType = "up",
+  delay = 0,
 }) {
   const isIncident =
-    title?.toLowerCase().includes("incident")
+    title?.toLowerCase().includes("incident") ||
+    String(value).toLowerCase().includes("degraded") ||
+    String(value).toLowerCase().includes("critical")
 
   const isHealthy =
-    title?.toLowerCase().includes("healthy")
-
-  const isAI =
-    title?.toLowerCase().includes("ai")
+    title?.toLowerCase().includes("healthy") ||
+    String(value).toLowerCase().includes("100%")
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.045] via-[#11131A]/80 to-violet-500/[0.035] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-white/[0.13] hover:shadow-[0_18px_45px_rgba(0,0,0,0.18)]">
-      {/* COLOR ATMOSPHERE */}
-      <div
-        className={`pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full blur-3xl transition-opacity duration-500 group-hover:opacity-100 ${
-          isIncident
-            ? "bg-red-500/[0.07]"
-            : isAI
-              ? "bg-violet-500/[0.09]"
-              : isHealthy
-                ? "bg-[#75E063]/[0.07]"
-                : "bg-indigo-500/[0.07]"
-        } opacity-70`}
-      />
+    <div
+      className="group relative bg-card border border-border rounded-xl p-5 hover:border-accent/50 transition-all duration-300 overflow-hidden animate-in fade-in slide-in-from-bottom-4"
+      style={{ animationDelay: `${delay}ms`, animationFillMode: "both" }}
+    >
+      {/* SUBTLE CARD HOVER GLOW GRADIENT */}
+      <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
       <div className="relative">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[9px] font-medium uppercase tracking-[0.16em] text-gray-600">
-              {title}
-            </p>
-
-            <p className="mt-4 text-3xl font-semibold tracking-tight text-white">
-              {value}
-            </p>
-
-            <p className="mt-2 text-[10px] leading-4 text-gray-600">
-              {subtitle}
-            </p>
-          </div>
-
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] via-white/[0.025] to-violet-500/[0.04]">
+        {/* HEADER ROW */}
+        <div className="flex items-start justify-between mb-3">
+          <span className="text-sm text-muted-foreground font-medium truncate">
+            {title}
+          </span>
+          <div className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center shrink-0 group-hover:bg-accent/10 transition-colors duration-300">
             {Icon && (
-              <Icon className="h-[18px] w-[18px] text-[#75E063]" />
+              <Icon className="w-4 h-4 text-muted-foreground group-hover:text-accent transition-colors duration-300" />
             )}
           </div>
         </div>
 
-        <div className="mt-5 flex items-center gap-2 border-t border-white/[0.06] pt-4">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#75E063] shadow-[0_0_7px_#75E063]" />
-
-          <span className="text-[9px] font-medium text-[#75E063]/80">
-            {status}
+        {/* VALUE ROW */}
+        <div className="flex items-end justify-between gap-3">
+          <span className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">
+            {value}
           </span>
+
+          {trend ? (
+            <div
+              className={`flex items-center gap-1 text-sm font-medium mb-1 ${
+                trendType === "down"
+                  ? "text-destructive"
+                  : trendType === "up"
+                    ? "text-success"
+                    : "text-muted-foreground"
+              }`}
+            >
+              {trendType === "down" ? (
+                <TrendingDown className="w-3.5 h-3.5" />
+              ) : (
+                <TrendingUp className="w-3.5 h-3.5" />
+              )}
+              <span>{trend}</span>
+            </div>
+          ) : status ? (
+            <div
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium mb-1 ${
+                isIncident
+                  ? "bg-destructive/10 text-destructive border border-destructive/20"
+                  : isHealthy
+                    ? "bg-success/10 text-success border border-success/20"
+                    : "bg-secondary text-muted-foreground"
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  isIncident
+                    ? "bg-destructive animate-pulse"
+                    : isHealthy
+                      ? "bg-success"
+                      : "bg-muted-foreground"
+                }`}
+              />
+              <span className="truncate max-w-[120px]">{status}</span>
+            </div>
+          ) : null}
         </div>
+
+        {/* SUBTITLE */}
+        {subtitle && (
+          <p className="text-xs text-muted-foreground mt-2 truncate">
+            {subtitle}
+          </p>
+        )}
       </div>
     </div>
   )

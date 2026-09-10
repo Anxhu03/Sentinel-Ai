@@ -6,4 +6,12 @@ __pycache__/
 
 # Virtual environment
 .venv/
-node_modules
+node_modules/
+dist/
+frontend/dist/
+.pytest_cache/
+
+# Environment files
+.env
+*.local
+
