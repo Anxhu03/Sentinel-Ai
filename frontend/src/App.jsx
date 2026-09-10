@@ -4,26 +4,21 @@ import {
   AlertTriangle,
   Brain,
   CheckCircle2,
-  Database,
-  Gauge,
-  RotateCcw,
-  Server,
-  Shield,
-  Zap,
-  Cpu,
-  MemoryStick,
-  Clock3,
-  TrendingUp,
-  Network,
-  Target,
-  GitBranch,
-  TriangleAlert,
-  Sparkles,
-  ShieldAlert,
-  FlaskConical,
-  ArrowUpRight,
   Clock,
-  Scale,
+  Database,
+  GitBranch,
+  Gauge,
+  History,
+  Network,
+  RefreshCw,
+  Server,
+  Settings,
+  Shield,
+  ShieldCheck,
+  Siren,
+  TrendingUp,
+  Wrench,
+  Zap,
 } from "lucide-react"
 
 import Sidebar from "./components/Sidebar"
@@ -37,7 +32,110 @@ import WhatIfSimulationPanel from "./components/WhatIfSimulationPanel"
 
 const API_BASE = "http://127.0.0.1:8000"
 
+const NAV_ITEMS = [
+  "Overview",
+  "Monitoring",
+  "AI Investigation",
+  "Services",
+  "Dependencies",
+  "Remediation",
+  "Incident Memory",
+  "System Health",
+  "Settings",
+]
+
+function getPageFromHash() {
+  const raw = window.location.hash.replace(/^#/, "")
+
+  if (!raw) {
+    return "Overview"
+  }
+
+  try {
+    const decoded = decodeURIComponent(raw)
+
+    return NAV_ITEMS.includes(decoded)
+      ? decoded
+      : "Overview"
+  } catch {
+    return "Overview"
+  }
+}
+
+function navigateTo(page) {
+  const nextHash = encodeURIComponent(page)
+
+  if (window.location.hash.replace(/^#/, "") === nextHash) {
+    window.dispatchEvent(new HashChangeEvent("hashchange"))
+    return
+  }
+
+  window.location.hash = nextHash
+}
+
+function formatValue(value) {
+  if (value === null || value === undefined) {
+    return "Unknown"
+  }
+
+  if (typeof value === "string") {
+    return value.replace(/_/g, " ")
+  }
+
+  if (
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return String(value)
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(formatValue).join(", ")
+  }
+
+  if (typeof value === "object") {
+    if (value.message) {
+      return String(value.message)
+    }
+
+    return JSON.stringify(value)
+  }
+
+  return String(value)
+}
+
+function getSeverity(metric, value) {
+  if (value === undefined || value === null) {
+    return "normal"
+  }
+
+  if (metric === "cpu" || metric === "memory") {
+    if (value >= 85) return "critical"
+    if (value >= 70) return "elevated"
+  }
+
+  if (metric === "latency") {
+    if (value >= 1000) return "critical"
+    if (value >= 400) return "elevated"
+  }
+
+  if (metric === "error") {
+    if (value >= 10) return "critical"
+    if (value >= 3) return "elevated"
+  }
+
+  return "normal"
+}
+
+function getSeverityText(state) {
+  if (state === "critical") return "Critical"
+  if (state === "elevated") return "Elevated"
+  return "Normal"
+}
+
 function App() {
+  const [page, setPage] = useState(getPageFromHash)
+
   const [services, setServices] = useState([])
   const [metrics, setMetrics] = useState(null)
   const [dependencyGraph, setDependencyGraph] = useState(null)
@@ -45,18 +143,50 @@ function App() {
 
   const [lastIncident, setLastIncident] = useState(null)
   const [loadingIncident, setLoadingIncident] = useState(false)
+
   const [recovering, setRecovering] = useState(false)
   const [recoveryMessage, setRecoveryMessage] = useState("")
+
   const [backendOnline, setBackendOnline] = useState(false)
 
   const [simulation, setSimulation] = useState(null)
   const [simulationLoading, setSimulationLoading] = useState(false)
-  const [simulationService, setSimulationService] = useState("payment-service")
-  const [simulationIncident, setSimulationIncident] = useState("payment_failure")
+
+  const [simulationService, setSimulationService] =
+    useState("payment-service")
+
+  const [simulationIncident, setSimulationIncident] =
+    useState("payment_failure")
+
+  const [memory, setMemory] = useState([])
+  const [memoryLoading, setMemoryLoading] = useState(false)
+
+  useEffect(() => {
+    const handleNavigation = () => {
+      setPage(getPageFromHash())
+    }
+
+    window.addEventListener("hashchange", handleNavigation)
+
+    handleNavigation()
+
+    if (!window.location.hash) {
+      window.location.hash = encodeURIComponent("Overview")
+    }
+
+    return () => {
+      window.removeEventListener(
+        "hashchange",
+        handleNavigation
+      )
+    }
+  }, [])
 
   const fetchServices = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/services/`)
+      const response = await fetch(
+        `${API_BASE}/api/services/`
+      )
 
       if (!response.ok) {
         throw new Error("Failed to fetch services")
@@ -67,14 +197,16 @@ function App() {
       setServices(Array.isArray(data) ? data : [])
       setBackendOnline(true)
     } catch (error) {
-      console.error("Backend connection error:", error)
+      console.error("Services error:", error)
       setBackendOnline(false)
     }
   }
 
   const fetchMetrics = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/metrics/`)
+      const response = await fetch(
+        `${API_BASE}/api/metrics/`
+      )
 
       if (!response.ok) {
         throw new Error("Failed to fetch metrics")
@@ -85,43 +217,123 @@ function App() {
       setMetrics(data)
       setBackendOnline(true)
     } catch (error) {
-      console.error("Metrics connection error:", error)
+      console.error("Metrics error:", error)
     }
   }
 
-  const fetchDependencyGraph = async () => {
+  const fetchDependencies = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/dependencies/`)
+      const response = await fetch(
+        `${API_BASE}/api/dependencies/`
+      )
 
       if (!response.ok) {
-        throw new Error("Failed to fetch dependency graph")
+        throw new Error(
+          "Failed to fetch dependencies"
+        )
       }
 
       const data = await response.json()
 
       setDependencyGraph(data)
     } catch (error) {
-      console.error("Dependency graph error:", error)
+      console.error(
+        "Dependency graph error:",
+        error
+      )
     }
   }
 
   const fetchPrediction = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/prediction/`)
+      const response = await fetch(
+        `${API_BASE}/api/prediction/`
+      )
 
       if (!response.ok) {
-        throw new Error("Failed to fetch prediction")
+        throw new Error(
+          "Failed to fetch prediction"
+        )
       }
 
       const data = await response.json()
 
       setPrediction(data)
     } catch (error) {
-      console.error("Prediction engine error:", error)
+      console.error(
+        "Prediction error:",
+        error
+      )
     }
   }
 
-  const runSimulation = async () => {
+  const fetchMemory = async () => {
+    try {
+      setMemoryLoading(true)
+
+      const response = await fetch(
+        `${API_BASE}/api/memory/?limit=50`
+      )
+
+      if (!response.ok) {
+        throw new Error(
+          "Failed to fetch incident memory"
+        )
+      }
+
+      const data = await response.json()
+
+      setMemory(
+        Array.isArray(data.memories)
+          ? data.memories
+          : []
+      )
+    } catch (error) {
+      console.error(
+        "Memory error:",
+        error
+      )
+    } finally {
+      setMemoryLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchServices()
+    fetchMetrics()
+    fetchDependencies()
+    fetchPrediction()
+    fetchMemory()
+
+    const serviceInterval = setInterval(
+      fetchServices,
+      3000
+    )
+
+    const metricInterval = setInterval(
+      fetchMetrics,
+      2000
+    )
+
+    const predictionInterval = setInterval(
+      fetchPrediction,
+      3000
+    )
+
+    const memoryInterval = setInterval(
+      fetchMemory,
+      10000
+    )
+
+    return () => {
+      clearInterval(serviceInterval)
+      clearInterval(metricInterval)
+      clearInterval(predictionInterval)
+      clearInterval(memoryInterval)
+    }
+  }, [])
+
+  const runWhatIfSimulation = async () => {
     try {
       setSimulationLoading(true)
 
@@ -140,17 +352,20 @@ function App() {
       )
 
       if (!response.ok) {
-        throw new Error("Simulation request failed")
+        throw new Error(
+          "Simulation request failed"
+        )
       }
 
       const data = await response.json()
 
       setSimulation(data)
       setBackendOnline(true)
-
-      console.log("What-If simulation:", data)
     } catch (error) {
-      console.error("Simulation error:", error)
+      console.error(
+        "Simulation error:",
+        error
+      )
 
       setSimulation({
         status: "error",
@@ -162,24 +377,9 @@ function App() {
     }
   }
 
-  useEffect(() => {
-    fetchServices()
-    fetchMetrics()
-    fetchDependencyGraph()
-    fetchPrediction()
-
-    const servicesInterval = setInterval(fetchServices, 3000)
-    const metricsInterval = setInterval(fetchMetrics, 2000)
-    const predictionInterval = setInterval(fetchPrediction, 3000)
-
-    return () => {
-      clearInterval(servicesInterval)
-      clearInterval(metricsInterval)
-      clearInterval(predictionInterval)
-    }
-  }, [])
-
-  const simulateIncident = async (incidentType) => {
+  const simulateIncident = async (
+    incidentType
+  ) => {
     try {
       setLoadingIncident(true)
       setRecoveryMessage("")
@@ -195,34 +395,45 @@ function App() {
       )
 
       if (!response.ok) {
-        throw new Error("Failed to simulate incident")
+        throw new Error(
+          "Failed to simulate incident"
+        )
       }
 
       const data = await response.json()
 
-      console.log("Incident response:", data)
-
       setLastIncident(data)
 
       if (data.affected_service) {
-        setSimulationService(data.affected_service)
+        setSimulationService(
+          data.affected_service
+        )
       }
 
       if (data.incident_type) {
-        setSimulationIncident(data.incident_type)
+        setSimulationIncident(
+          data.incident_type
+        )
       }
 
       await fetchServices()
       await fetchMetrics()
-      await fetchDependencyGraph()
+      await fetchDependencies()
       await fetchPrediction()
+      await fetchMemory()
+
+      navigateTo("AI Investigation")
     } catch (error) {
-      console.error("Incident simulation error:", error)
+      console.error(
+        "Incident simulation error:",
+        error
+      )
 
       setLastIncident({
         status: "error",
         incident_type: incidentType,
-        message: "Failed to trigger incident.",
+        message:
+          "Failed to trigger incident.",
         error: error.message,
       })
     } finally {
@@ -246,15 +457,16 @@ function App() {
       )
 
       if (!response.ok) {
-        throw new Error("Recovery request failed")
+        throw new Error(
+          "Recovery request failed"
+        )
       }
 
       const data = await response.json()
 
-      console.log("Recovery response:", data)
-
       setRecoveryMessage(
-        data.message || "All affected services have been restored."
+        data.message ||
+          "All affected services have been restored."
       )
 
       setLastIncident(null)
@@ -262,13 +474,17 @@ function App() {
 
       await fetchServices()
       await fetchMetrics()
-      await fetchDependencyGraph()
+      await fetchDependencies()
       await fetchPrediction()
+      await fetchMemory()
     } catch (error) {
-      console.error("Recovery error:", error)
+      console.error(
+        "Recovery error:",
+        error
+      )
 
       setRecoveryMessage(
-        "Recovery failed. Please make sure the Sentinel backend is running."
+        "Recovery failed. Make sure the Sentinel backend is running."
       )
     } finally {
       setRecovering(false)
@@ -276,49 +492,44 @@ function App() {
   }
 
   const healthyServices = useMemo(
-    () => services.filter((service) => service.status === "healthy"),
+    () =>
+      services.filter(
+        (service) =>
+          service.status === "healthy"
+      ),
     [services]
   )
 
   const degradedServices = useMemo(
-    () => services.filter((service) => service.status !== "healthy"),
+    () =>
+      services.filter(
+        (service) =>
+          service.status !== "healthy"
+      ),
     [services]
   )
 
-  const activeIncidents = degradedServices.length
   const totalServices = services.length
+
+  const activeIncidents =
+    degradedServices.length
 
   const healthPercentage =
     totalServices > 0
-      ? Math.round((healthyServices.length / totalServices) * 100)
+      ? Math.round(
+          (healthyServices.length /
+            totalServices) *
+            100
+        )
       : 0
 
-  const cpuValue = metrics?.cpu_usage
-  const memoryValue = metrics?.memory_usage
-  const latencyValue = metrics?.api_latency
-  const errorValue = metrics?.error_rate
-
-  const cpuUsage =
-    cpuValue !== undefined ? `${cpuValue}%` : "--"
-
-  const memoryUsage =
-    memoryValue !== undefined ? `${memoryValue}%` : "--"
-
-  const apiLatency =
-    latencyValue !== undefined ? `${latencyValue} ms` : "--"
-
-  const errorRate =
-    errorValue !== undefined ? `${errorValue}%` : "--"
-
-  const requestsPerMinute =
-    metrics?.requests_per_minute !== undefined
-      ? metrics.requests_per_minute.toLocaleString()
-      : "--"
-
-  const telemetryState = getTelemetryState(metrics)
+  const cpu = metrics?.cpu_usage
+  const memoryUsage = metrics?.memory_usage
+  const latency = metrics?.api_latency
+  const errorRate = metrics?.error_rate
 
   return (
-    <div className="min-h-screen bg-[#0B120E] text-white">
+    <div className="min-h-screen bg-[#08090D] text-white">
       <div className="flex min-h-screen">
         <Sidebar />
 
@@ -326,520 +537,160 @@ function App() {
           <Topbar />
 
           <div className="mx-auto max-w-[1600px] px-6 py-8 lg:px-8">
-
-            {/* HEADER */}
-
-            <div className="mb-8 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-              <div>
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-[#75E063] shadow-[0_0_10px_#75E063]" />
-
-                  <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#75E063]">
-                    Sentinel AI Operations Center
-                  </span>
-                </div>
-
-                <h1 className="text-3xl font-semibold tracking-tight text-white lg:text-4xl">
-                  Enterprise Operations Dashboard
-                </h1>
-
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-500">
-                  Monitor production infrastructure, investigate incidents,
-                  and let Sentinel AI identify root causes automatically.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3">
-                <span
-                  className={`h-2.5 w-2.5 rounded-full ${
-                    backendOnline
-                      ? "bg-[#75E063] shadow-[0_0_10px_#75E063]"
-                      : "bg-red-500 shadow-[0_0_10px_#ef4444]"
-                  }`}
-                />
-
-                <div>
-                  <p className="text-xs font-medium text-white">
-                    {backendOnline
-                      ? "Backend Connected"
-                      : "Backend Offline"}
-                  </p>
-
-                  <p className="mt-0.5 text-[10px] text-gray-600">
-                    {backendOnline
-                      ? "Live infrastructure monitoring"
-                      : "Waiting for API connection"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* TOP METRICS */}
-
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricCard
-                title="Services"
-                value={totalServices}
-                subtitle="Registered production services"
-                icon={Server}
-                status={
-                  backendOnline
-                    ? "Infrastructure connected"
-                    : "Connection unavailable"
+            {page === "Overview" && (
+              <OverviewPage
+                backendOnline={backendOnline}
+                services={services}
+                healthyServices={healthyServices}
+                degradedServices={degradedServices}
+                totalServices={totalServices}
+                activeIncidents={
+                  activeIncidents
+                }
+                healthPercentage={
+                  healthPercentage
+                }
+                metrics={metrics}
+                prediction={prediction}
+                dependencyGraph={
+                  dependencyGraph
+                }
+                simulation={simulation}
+                simulationLoading={
+                  simulationLoading
+                }
+                setSimulationService={
+                  setSimulationService
+                }
+                setSimulationIncident={
+                  setSimulationIncident
+                }
+                simulationService={
+                  simulationService
+                }
+                simulationIncident={
+                  simulationIncident
+                }
+                runSimulation={
+                  runWhatIfSimulation
+                }
+                lastIncident={
+                  lastIncident
+                }
+                loadingIncident={
+                  loadingIncident
+                }
+                simulateIncident={
+                  simulateIncident
+                }
+                recoverIncident={
+                  recoverIncident
+                }
+                recovering={recovering}
+                recoveryMessage={
+                  recoveryMessage
                 }
               />
+            )}
 
-              <MetricCard
-                title="Healthy"
-                value={healthyServices.length}
-                subtitle="Services operating normally"
-                icon={CheckCircle2}
-                status={`${healthPercentage}% infrastructure health`}
-              />
-
-              <MetricCard
-                title="Active Incidents"
-                value={activeIncidents}
-                subtitle="Currently degraded services"
-                icon={AlertTriangle}
-                status={
-                  activeIncidents > 0
-                    ? "Investigation required"
-                    : "No active incidents"
-                }
-              />
-
-              <MetricCard
-                title="AI Engine"
-                value="ONLINE"
-                subtitle="Sentinel reasoning engine"
-                icon={Brain}
-                status="Ready for investigation"
-              />
-            </div>
-
-            {/* LIVE TELEMETRY */}
-
-            <section className="mt-8">
-              <div className="mb-5 flex items-end justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        telemetryState === "critical"
-                          ? "bg-red-500 shadow-[0_0_8px_#ef4444]"
-                          : telemetryState === "elevated"
-                          ? "bg-yellow-400 shadow-[0_0_8px_#facc15]"
-                          : "bg-[#75E063] shadow-[0_0_8px_#75E063]"
-                      }`}
-                    />
-
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-[#75E063]">
-                      Live Telemetry
-                    </p>
-                  </div>
-
-                  <h2 className="mt-1 text-lg font-semibold text-white">
-                    Infrastructure Metrics
-                  </h2>
-                </div>
-
-                <div className="flex items-center gap-2 text-[10px] text-gray-600">
-                  <Activity className="h-3 w-3 text-[#75E063]" />
-                  Updating every 2 seconds
-                </div>
-              </div>
-
-              {metrics?.incident_active && (
-                <div className="mb-4 flex items-center justify-between rounded-xl border border-red-500/20 bg-red-500/[0.04] px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-500/20 bg-red-500/10">
-                      <AlertTriangle className="h-4 w-4 text-red-400" />
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wider text-red-400">
-                        Active Telemetry Anomaly
-                      </p>
-
-                      <p className="mt-1 text-xs text-gray-500">
-                        {formatValue(metrics.incident_type)}
-                        {" • "}
-                        Production metrics are outside normal operating range.
-                      </p>
-                    </div>
-                  </div>
-
-                  <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[9px] font-medium uppercase tracking-wider text-red-400">
-                    Incident Active
-                  </span>
-                </div>
-              )}
-
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-                <TelemetryCard
-                  title="CPU Usage"
-                  value={cpuUsage}
-                  subtitle="Current compute utilization"
-                  icon={Cpu}
-                  state={getMetricSeverity("cpu", cpuValue)}
-                />
-
-                <TelemetryCard
-                  title="Memory"
-                  value={memoryUsage}
-                  subtitle="Current memory utilization"
-                  icon={MemoryStick}
-                  state={getMetricSeverity("memory", memoryValue)}
-                />
-
-                <TelemetryCard
-                  title="API Latency"
-                  value={apiLatency}
-                  subtitle="Average request latency"
-                  icon={Clock3}
-                  state={getMetricSeverity("latency", latencyValue)}
-                />
-
-                <TelemetryCard
-                  title="Error Rate"
-                  value={errorRate}
-                  subtitle="Current application errors"
-                  icon={AlertTriangle}
-                  state={getMetricSeverity("error", errorValue)}
-                />
-
-                <TelemetryCard
-                  title="Requests / Min"
-                  value={requestsPerMinute}
-                  subtitle="Current traffic volume"
-                  icon={TrendingUp}
-                  state={
-                    metrics?.incident_active
-                      ? "elevated"
-                      : "normal"
-                  }
-                />
-              </div>
-            </section>
-
-            {/* PREDICTIVE INTELLIGENCE */}
-
-            <section className="mt-8">
-              <PredictionPanel
+            {page === "Monitoring" && (
+              <MonitoringPage
+                metrics={metrics}
                 prediction={prediction}
                 services={services}
-                metrics={metrics}
+                backendOnline={
+                  backendOnline
+                }
               />
-            </section>
+            )}
 
-            {/* WHAT-IF SIMULATOR */}
-
-            <section className="mt-8">
-              <WhatIfSimulationPanel
-                simulation={simulation}
-                simulationLoading={simulationLoading}
-                canSimulate={services.length > 0}
-                onSimulate={runSimulation}
+            {page === "AI Investigation" && (
+              <AIInvestigationPage
+                incident={
+                  lastIncident
+                }
+                services={services}
+                onTrigger={
+                  simulateIncident
+                }
+                loading={
+                  loadingIncident
+                }
               />
-            </section>
+            )}
 
-            {/* SERVICE DEPENDENCY GRAPH */}
+            {page === "Services" && (
+              <ServicesPage
+                services={services}
+                backendOnline={
+                  backendOnline
+                }
+                healthPercentage={
+                  healthPercentage
+                }
+              />
+            )}
 
-            <section className="mt-8">
-              <div className="mb-5 flex items-end justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Network className="h-4 w-4 text-[#75E063]" />
-
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-[#75E063]">
-                      Architecture Intelligence
-                    </p>
-                  </div>
-
-                  <h2 className="mt-1 text-lg font-semibold text-white">
-                    Service Dependency Graph
-                  </h2>
-
-                  <p className="mt-1 text-xs text-gray-600">
-                    Sentinel understands how production services depend on each other.
-                  </p>
-                </div>
-
-                <div className="text-xs text-gray-600">
-                  {dependencyGraph?.dependencies?.length || 0} relationships
-                </div>
-              </div>
-
-              <DependencyGraphPanel
+            {page === "Dependencies" && (
+              <DependenciesPage
                 graph={dependencyGraph}
                 services={services}
               />
-            </section>
-
-            {/* INCIDENT SIMULATOR */}
-
-            <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.025] p-6">
-              <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#75E063]/20 bg-[#75E063]/10">
-                      <Zap className="h-5 w-5 text-[#75E063]" />
-                    </div>
-
-                    <div>
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-[#75E063]">
-                        Controlled Failure Environment
-                      </p>
-
-                      <h2 className="mt-1 text-lg font-semibold text-white">
-                        Incident Simulator
-                      </h2>
-                    </div>
-                  </div>
-
-                  <p className="mt-3 max-w-2xl text-xs leading-5 text-gray-600">
-                    Inject controlled production failures and observe
-                    Sentinel AI detect, investigate, and explain the incident.
-                  </p>
-                </div>
-
-                <button
-                  onClick={recoverIncident}
-                  disabled={
-                    recovering ||
-                    loadingIncident ||
-                    degradedServices.length === 0
-                  }
-                  className="flex items-center justify-center gap-2 rounded-xl border border-[#75E063]/30 bg-[#75E063]/10 px-5 py-3 text-sm font-medium text-[#75E063] transition hover:bg-[#75E063]/15 disabled:cursor-not-allowed disabled:opacity-30"
-                >
-                  <RotateCcw
-                    className={`h-4 w-4 ${
-                      recovering ? "animate-spin" : ""
-                    }`}
-                  />
-
-                  {recovering
-                    ? "Recovering..."
-                    : "Recover Incident"}
-                </button>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                <IncidentButton
-                  label="Database Down"
-                  type="db_down"
-                  icon={Database}
-                  onClick={simulateIncident}
-                  loading={loadingIncident}
-                />
-
-                <IncidentButton
-                  label="Payment Failure"
-                  type="payment_failure"
-                  icon={Activity}
-                  onClick={simulateIncident}
-                  loading={loadingIncident}
-                />
-
-                <IncidentButton
-                  label="Order Crash"
-                  type="order_crash"
-                  icon={Server}
-                  onClick={simulateIncident}
-                  loading={loadingIncident}
-                />
-
-                <IncidentButton
-                  label="API Failure"
-                  type="api_failure"
-                  icon={Activity}
-                  onClick={simulateIncident}
-                  loading={loadingIncident}
-                />
-
-                <IncidentButton
-                  label="CPU Spike"
-                  type="cpu_spike"
-                  icon={Gauge}
-                  onClick={simulateIncident}
-                  loading={loadingIncident}
-                />
-
-                <IncidentButton
-                  label="Memory Leak"
-                  type="memory_leak"
-                  icon={Activity}
-                  onClick={simulateIncident}
-                  loading={loadingIncident}
-                />
-              </div>
-
-              {recoveryMessage && (
-                <div className="mt-5 flex items-start gap-3 rounded-xl border border-[#75E063]/20 bg-[#75E063]/5 p-4">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#75E063]" />
-
-                  <div>
-                    <p className="text-sm font-medium text-[#75E063]">
-                      Recovery Complete
-                    </p>
-
-                    <p className="mt-1 text-xs leading-5 text-gray-500">
-                      {recoveryMessage}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {/* INCIDENT RESULT */}
-
-            {lastIncident && (
-              <section className="mt-8 rounded-2xl border border-red-500/20 bg-red-500/[0.025] p-6">
-                <div className="mb-6 flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10">
-                      <AlertTriangle className="h-5 w-5 text-red-400" />
-                    </div>
-
-                    <div>
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-red-400">
-                        Incident Triggered
-                      </p>
-
-                      <h2 className="mt-1 text-lg font-semibold text-white">
-                        {formatValue(
-                          lastIncident.incident_type ||
-                            "Production Incident"
-                        )}
-                      </h2>
-
-                      <p className="mt-2 text-xs leading-5 text-gray-500">
-                        {formatValue(
-                          lastIncident.message ||
-                            "A controlled production failure has been injected."
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-red-400">
-                    Triggered
-                  </span>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <IncidentDetail
-                    label="Incident Type"
-                    value={lastIncident.incident_type}
-                  />
-
-                  <IncidentDetail
-                    label="Affected Service"
-                    value={
-                      lastIncident.affected_service ||
-                      "Service under investigation"
-                    }
-                  />
-
-                  <IncidentDetail
-                    label="Status"
-                    value={lastIncident.status}
-                  />
-
-                  <IncidentDetail
-                    label="Detection"
-                    value="Sentinel AI"
-                  />
-                </div>
-
-                {lastIncident.impact_analysis && (
-                  <ImpactPropagation
-                    impact={lastIncident.impact_analysis}
-                  />
-                )}
-              </section>
             )}
 
-            {/* AI INVESTIGATION */}
-
-            {lastIncident && (
-              <section className="mt-8">
-                <AIInvestigation incident={lastIncident} />
-              </section>
-            )}
-
-            {/* ROOT CAUSE */}
-
-            {lastIncident?.root_cause_analysis && (
-              <RootCauseAnalysis
-                analysis={lastIncident.root_cause_analysis}
+            {page === "Remediation" && (
+              <RemediationPage
+                incident={
+                  lastIncident
+                }
+                recoveryMessage={
+                  recoveryMessage
+                }
+                recovering={recovering}
+                degradedServices={
+                  degradedServices
+                }
+                onRecover={
+                  recoverIncident
+                }
               />
             )}
 
-            {/* SERVICE HEALTH */}
+            {page === "Incident Memory" && (
+              <IncidentMemoryPage
+                memory={memory}
+                loading={
+                  memoryLoading
+                }
+                onRefresh={
+                  fetchMemory
+                }
+              />
+            )}
 
-            <section className="mt-8">
-              <div className="mb-5 flex items-end justify-between">
-                <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-[#75E063]">
-                    Infrastructure
-                  </p>
+            {page === "System Health" && (
+              <SystemHealthPage
+                services={services}
+                metrics={metrics}
+                backendOnline={
+                  backendOnline
+                }
+                healthPercentage={
+                  healthPercentage
+                }
+              />
+            )}
 
-                  <h2 className="mt-1 text-lg font-semibold text-white">
-                    Service Health
-                  </h2>
-                </div>
-
-                <div className="text-xs text-gray-600">
-                  {healthyServices.length}/{totalServices} healthy
-                </div>
-              </div>
-
-              {services.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-10 text-center">
-                  <Server className="mx-auto h-8 w-8 text-gray-700" />
-
-                  <p className="mt-4 text-sm text-gray-500">
-                    No services found.
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-700">
-                    Make sure the Sentinel backend is running.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {services.map((service) => (
-                    <ServiceCard
-                      key={service.id}
-                      service={service}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {/* CHART + FEED */}
-
-            <section className="mt-8 grid gap-6 xl:grid-cols-[1.5fr_1fr]">
-              <MetricChart />
-              <ExecutionFeed />
-            </section>
-
-            {/* FOOTER */}
-
-            <footer className="mt-10 border-t border-white/10 py-6">
-              <div className="flex flex-col gap-2 text-[10px] text-gray-700 sm:flex-row sm:items-center sm:justify-between">
-                <span>
-                  SENTINEL AI • Enterprise AI Operations Copilot
-                </span>
-
-                <span>
-                  Monitoring {totalServices} production services
-                </span>
-              </div>
-            </footer>
+            {page === "Settings" && (
+              <SettingsPage
+                backendOnline={
+                  backendOnline
+                }
+                apiBase={
+                  API_BASE
+                }
+              />
+            )}
           </div>
         </main>
       </div>
@@ -847,530 +698,460 @@ function App() {
   )
 }
 
-
 /* =========================================================
-   WHAT-IF SIMULATOR
+   PAGE HEADER
 ========================================================= */
 
-function WhatIfSimulator({
-  simulation,
-  simulationLoading,
-  simulationService,
-  simulationIncident,
-  setSimulationService,
-  setSimulationIncident,
-  runSimulation,
-  services,
-}) {
-  return (
-    <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[0.02] p-6">
-
-      {/* HEADER */}
-
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-violet-500/20 bg-violet-500/10">
-            <FlaskConical className="h-5 w-5 text-violet-400" />
-          </div>
-
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-violet-400">
-              Decision Intelligence
-            </p>
-
-            <h2 className="mt-1 text-lg font-semibold text-white">
-              Production What-If Simulator
-            </h2>
-
-            <p className="mt-1 text-xs text-gray-600">
-              Compare remediation strategies before touching production.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5">
-          <Sparkles className="h-3.5 w-3.5 text-violet-400" />
-
-          <span className="text-[10px] font-medium uppercase tracking-wider text-violet-400">
-            Digital Twin Mode
-          </span>
-        </div>
-      </div>
-
-      {/* CONTROLS */}
-
-      <div className="mt-6 rounded-xl border border-white/10 bg-black/10 p-5">
-
-        <div className="grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
-
-          <div>
-            <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-gray-600">
-              Target Service
-            </label>
-
-            <select
-              value={simulationService}
-              onChange={(event) =>
-                setSimulationService(event.target.value)
-              }
-              className="w-full rounded-xl border border-white/10 bg-[#0B120E] px-4 py-3 text-sm text-gray-300 outline-none transition focus:border-violet-500/40"
-            >
-              {services.length > 0 ? (
-                services.map((service) => (
-                  <option
-                    key={service.id}
-                    value={service.name}
-                  >
-                    {service.name}
-                  </option>
-                ))
-              ) : (
-                <>
-                  <option value="payment-service">
-                    payment-service
-                  </option>
-                  <option value="order-service">
-                    order-service
-                  </option>
-                  <option value="product-service">
-                    product-service
-                  </option>
-                </>
-              )}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-gray-600">
-              Incident Scenario
-            </label>
-
-            <select
-              value={simulationIncident}
-              onChange={(event) =>
-                setSimulationIncident(event.target.value)
-              }
-              className="w-full rounded-xl border border-white/10 bg-[#0B120E] px-4 py-3 text-sm text-gray-300 outline-none transition focus:border-violet-500/40"
-            >
-              <option value="payment_failure">
-                Payment Failure
-              </option>
-
-              <option value="db_down">
-                Database Down
-              </option>
-
-              <option value="cpu_spike">
-                CPU Spike
-              </option>
-
-              <option value="memory_leak">
-                Memory Leak
-              </option>
-
-              <option value="order_crash">
-                Order Crash
-              </option>
-
-              <option value="api_failure">
-                API Failure
-              </option>
-            </select>
-          </div>
-
-          <div className="flex items-end">
-            <button
-              onClick={runSimulation}
-              disabled={simulationLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-6 py-3 text-sm font-medium text-violet-300 transition hover:bg-violet-500/15 disabled:cursor-not-allowed disabled:opacity-40 lg:w-auto"
-            >
-              <FlaskConical
-                className={`h-4 w-4 ${
-                  simulationLoading ? "animate-pulse" : ""
-                }`}
-              />
-
-              {simulationLoading
-                ? "Simulating..."
-                : "Run What-If"}
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-4">
-          <Shield className="h-3.5 w-3.5 text-violet-400" />
-
-          <p className="text-[10px] text-gray-600">
-            Simulation only. No real production action is executed.
-          </p>
-        </div>
-      </div>
-
-      {/* RESULTS */}
-
-      {simulation?.status === "error" ? (
-        <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/[0.03] p-5">
-          <div className="flex items-center gap-3">
-            <ShieldAlert className="h-5 w-5 text-red-400" />
-
-            <p className="text-sm text-red-400">
-              {simulation.message}
-            </p>
-          </div>
-        </div>
-      ) : simulation ? (
-        <SimulationResults simulation={simulation} />
-      ) : (
-        <div className="mt-5 rounded-xl border border-white/10 bg-black/10 p-8 text-center">
-          <Target className="mx-auto h-7 w-7 text-gray-700" />
-
-          <p className="mt-3 text-sm text-gray-500">
-            No simulation has been run yet.
-          </p>
-
-          <p className="mt-1 text-xs text-gray-700">
-            Sentinel will compare multiple remediation strategies here.
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-
-/* =========================================================
-   SIMULATION RESULTS
-========================================================= */
-
-function SimulationResults({ simulation }) {
-  const scenarios = Array.isArray(simulation.scenarios)
-    ? simulation.scenarios
-    : []
-
-  const recommended = simulation.recommended_action
-
-  return (
-    <div className="mt-5">
-
-      {/* RECOMMENDATION */}
-
-      {recommended && (
-        <div className="rounded-xl border border-[#75E063]/25 bg-[#75E063]/[0.035] p-5">
-
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#75E063]/20 bg-[#75E063]/10">
-                <CheckCircle2 className="h-5 w-5 text-[#75E063]" />
-              </div>
-
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-[#75E063]">
-                  Sentinel Recommendation
-                </p>
-
-                <h3 className="mt-1 text-lg font-semibold text-white">
-                  {formatValue(recommended.name)}
-                </h3>
-
-                <p className="mt-1 text-xs text-gray-600">
-                  Best recovery-to-risk balance for this scenario.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <SimulationMiniStat
-                label="Recovery"
-                value={`${recommended.recovery_probability}%`}
-              />
-
-              <SimulationMiniStat
-                label="Risk"
-                value={recommended.risk}
-              />
-
-              <SimulationMiniStat
-                label="Impact"
-                value={recommended.impact}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SCENARIO COMPARISON */}
-
-      <div className="mt-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-gray-600">
-              Scenario Comparison
-            </p>
-
-            <p className="mt-1 text-xs text-gray-700">
-              {simulation.scenario_count || scenarios.length} possible remediation strategies evaluated
-            </p>
-          </div>
-
-          <Scale className="h-4 w-4 text-violet-400" />
-        </div>
-
-        <div className="space-y-3">
-          {scenarios.map((scenario, index) => (
-            <ScenarioCard
-              key={scenario.action}
-              scenario={scenario}
-              rank={index + 1}
-              recommended={scenario.action === recommended?.action}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* DECISION */}
-
-      {simulation.decision && (
-        <div className="mt-4 flex items-start gap-3 rounded-xl border border-white/10 bg-black/10 p-4">
-          <Brain className="mt-0.5 h-4 w-4 shrink-0 text-violet-400" />
-
-          <div>
-            <p className="text-[9px] font-medium uppercase tracking-wider text-violet-400">
-              AI Decision
-            </p>
-
-            <p className="mt-1 text-xs leading-5 text-gray-500">
-              {formatValue(simulation.decision)}
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-
-/* =========================================================
-   SCENARIO CARD
-========================================================= */
-
-function ScenarioCard({
-  scenario,
-  rank,
-  recommended,
-}) {
-  const riskStyle = {
-    Low: {
-      text: "text-[#75E063]",
-      border: "border-[#75E063]/20",
-      background: "bg-[#75E063]/5",
-    },
-    Medium: {
-      text: "text-yellow-400",
-      border: "border-yellow-400/20",
-      background: "bg-yellow-400/5",
-    },
-    High: {
-      text: "text-red-400",
-      border: "border-red-500/20",
-      background: "bg-red-500/5",
-    },
-  }
-
-  const style = riskStyle[scenario.risk] || riskStyle.Medium
-
-  return (
-    <div
-      className={`rounded-xl border p-5 transition ${
-        recommended
-          ? "border-[#75E063]/30 bg-[#75E063]/[0.035]"
-          : "border-white/10 bg-black/10"
-      }`}
-    >
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
-
-        <div className="flex min-w-0 items-center gap-3 xl:w-[30%]">
-          <div
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
-              recommended
-                ? "border-[#75E063]/20 bg-[#75E063]/10"
-                : "border-white/10 bg-white/[0.03]"
-            }`}
-          >
-            <span
-              className={`text-xs font-semibold ${
-                recommended
-                  ? "text-[#75E063]"
-                  : "text-gray-600"
-              }`}
-            >
-              #{rank}
-            </span>
-          </div>
-
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="truncate text-sm font-medium text-white">
-                {formatValue(scenario.action_name)}
-              </p>
-
-              {recommended && (
-                <span className="shrink-0 rounded-full border border-[#75E063]/20 bg-[#75E063]/10 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-[#75E063]">
-                  AI Pick
-                </span>
-              )}
-            </div>
-
-            <p className="mt-1 line-clamp-1 text-[10px] text-gray-600">
-              {formatValue(scenario.description)}
-            </p>
-          </div>
-        </div>
-
-        <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
-
-          <ScenarioMetric
-            label="Recovery"
-            value={`${scenario.recovery_probability}%`}
-            icon={TrendingUp}
-            highlight={scenario.recovery_probability >= 90}
-          />
-
-          <ScenarioMetric
-            label="Risk"
-            value={scenario.risk}
-            icon={ShieldAlert}
-            className={`${style.text}`}
-          />
-
-          <ScenarioMetric
-            label="Impact"
-            value={scenario.impact}
-            icon={Network}
-          />
-
-          <ScenarioMetric
-            label="Recovery Time"
-            value={`${scenario.estimated_recovery_seconds}s`}
-            icon={Clock}
-          />
-
-        </div>
-
-        <div className="xl:w-24">
-          <div className="text-right">
-            <p className="text-[8px] uppercase tracking-wider text-gray-700">
-              Decision Score
-            </p>
-
-            <p
-              className={`mt-1 text-lg font-semibold ${
-                recommended
-                  ? "text-[#75E063]"
-                  : "text-gray-400"
-              }`}
-            >
-              {scenario.decision_score}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4 h-1 overflow-hidden rounded-full bg-white/5">
-        <div
-          className={`h-full rounded-full ${
-            recommended
-              ? "bg-[#75E063]"
-              : style.background.replace("bg-", "bg-")
-          }`}
-          style={{
-            width: `${Math.min(
-              100,
-              Math.max(5, scenario.recovery_probability)
-            )}%`,
-          }}
-        />
-      </div>
-    </div>
-  )
-}
-
-
-/* =========================================================
-   SIMULATION MINI STAT
-========================================================= */
-
-function SimulationMiniStat({ label, value }) {
-  return (
-    <div className="min-w-[70px] rounded-lg border border-white/10 bg-black/10 px-3 py-2 text-center">
-      <p className="text-[8px] uppercase tracking-wider text-gray-700">
-        {label}
-      </p>
-
-      <p className="mt-1 text-xs font-semibold text-gray-300">
-        {value}
-      </p>
-    </div>
-  )
-}
-
-
-/* =========================================================
-   SCENARIO METRIC
-========================================================= */
-
-function ScenarioMetric({
-  label,
-  value,
+function PageHeader({
+  eyebrow,
+  title,
+  description,
   icon: Icon,
-  highlight = false,
-  className = "",
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <Icon
-        className={`h-3.5 w-3.5 ${
-          highlight
-            ? "text-[#75E063]"
-            : className || "text-gray-600"
-        }`}
+    <div className="mb-8">
+      <div className="flex items-center gap-2">
+        {Icon && (
+          <Icon className="h-4 w-4 text-violet-300" />
+        )}
+
+        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-violet-300">
+          {eyebrow}
+        </p>
+      </div>
+
+      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
+        {title}
+      </h1>
+
+      <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-500">
+        {description}
+      </p>
+    </div>
+  )
+}
+
+/* =========================================================
+   OVERVIEW
+========================================================= */
+
+function OverviewPage(props) {
+  const {
+    backendOnline,
+    services,
+    healthyServices,
+    degradedServices,
+    totalServices,
+    activeIncidents,
+    healthPercentage,
+    metrics,
+    prediction,
+    dependencyGraph,
+    simulation,
+    simulationLoading,
+    setSimulationService,
+    setSimulationIncident,
+    simulationService,
+    simulationIncident,
+    runSimulation,
+    lastIncident,
+    loadingIncident,
+    simulateIncident,
+    recoverIncident,
+    recovering,
+    recoveryMessage,
+  } = props
+
+  return (
+    <>
+      <PageHeader
+        eyebrow="Sentinel AI Operations Center"
+        title="Enterprise Operations Dashboard"
+        description="Monitor production infrastructure, investigate incidents, understand dependencies, and evaluate remediation strategies through Sentinel AI."
+        icon={Activity}
       />
 
-      <div>
-        <p className="text-[8px] uppercase tracking-wider text-gray-700">
-          {label}
-        </p>
-
-        <p
-          className={`mt-0.5 text-xs font-medium ${
-            highlight
-              ? "text-[#75E063]"
-              : className || "text-gray-400"
+      <div className="mb-8 flex items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3">
+        <span
+          className={`h-2.5 w-2.5 rounded-full ${
+            backendOnline
+              ? "bg-[#75E063] shadow-[0_0_10px_#75E063]"
+              : "bg-red-500 shadow-[0_0_10px_#ef4444]"
           }`}
-        >
-          {value}
-        </p>
+        />
+
+        <div>
+          <p className="text-xs font-medium text-white">
+            {backendOnline
+              ? "Backend Connected"
+              : "Backend Offline"}
+          </p>
+
+          <p className="mt-0.5 text-[10px] text-gray-600">
+            {backendOnline
+              ? "Live infrastructure monitoring active"
+              : "Waiting for Sentinel API"}
+          </p>
+        </div>
       </div>
-    </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          title="Services"
+          value={totalServices}
+          subtitle="Registered production services"
+          icon={Server}
+          status={
+            backendOnline
+              ? "Infrastructure connected"
+              : "Connection unavailable"
+          }
+        />
+
+        <MetricCard
+          title="Healthy"
+          value={healthyServices.length}
+          subtitle="Services operating normally"
+          icon={CheckCircle2}
+          status={`${healthPercentage}% infrastructure health`}
+        />
+
+        <MetricCard
+          title="Active Incidents"
+          value={activeIncidents}
+          subtitle="Currently degraded services"
+          icon={AlertTriangle}
+          status={
+            activeIncidents > 0
+              ? "Investigation required"
+              : "No active incidents"
+          }
+        />
+
+        <MetricCard
+          title="AI Engine"
+          value="ONLINE"
+          subtitle="Sentinel reasoning engine"
+          icon={Brain}
+          status="Ready for investigation"
+        />
+      </div>
+
+      <TelemetryStrip metrics={metrics} />
+
+      <div className="mt-8">
+        <PredictionSummary
+          prediction={prediction}
+          metrics={metrics}
+        />
+      </div>
+
+      <div className="mt-8">
+        <WhatIfSimulationPanel
+          simulation={simulation}
+          simulationLoading={
+            simulationLoading
+          }
+          canSimulate={
+            services.length > 0
+          }
+          onSimulate={
+            runSimulation
+          }
+        />
+      </div>
+
+      <div className="mt-8">
+        <SectionHeading
+          eyebrow="Architecture Intelligence"
+          title="Service Dependency Graph"
+          icon={Network}
+        />
+
+        <DependencyGraph
+          graph={dependencyGraph}
+          services={services}
+        />
+      </div>
+
+      <div className="mt-8 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#75E063]">
+              Controlled Failure Environment
+            </p>
+
+            <h2 className="mt-2 text-lg font-semibold text-white">
+              Incident Simulator
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={recoverIncident}
+            disabled={
+              recovering ||
+              loadingIncident ||
+              degradedServices.length === 0
+            }
+            className="flex items-center justify-center gap-2 rounded-xl border border-[#75E063]/30 bg-[#75E063]/10 px-5 py-3 text-sm font-medium text-[#75E063] transition hover:bg-[#75E063]/15 disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${
+                recovering
+                  ? "animate-spin"
+                  : ""
+              }`}
+            />
+
+            {recovering
+              ? "Recovering..."
+              : "Recover Incident"}
+          </button>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <IncidentButton
+            label="Database Down"
+            type="db_down"
+            icon={Database}
+            onClick={simulateIncident}
+            loading={loadingIncident}
+          />
+
+          <IncidentButton
+            label="Payment Failure"
+            type="payment_failure"
+            icon={Activity}
+            onClick={simulateIncident}
+            loading={loadingIncident}
+          />
+
+          <IncidentButton
+            label="Order Crash"
+            type="order_crash"
+            icon={Server}
+            onClick={simulateIncident}
+            loading={loadingIncident}
+          />
+
+          <IncidentButton
+            label="API Failure"
+            type="api_failure"
+            icon={Zap}
+            onClick={simulateIncident}
+            loading={loadingIncident}
+          />
+
+          <IncidentButton
+            label="CPU Spike"
+            type="cpu_spike"
+            icon={Gauge}
+            onClick={simulateIncident}
+            loading={loadingIncident}
+          />
+
+          <IncidentButton
+            label="Memory Leak"
+            type="memory_leak"
+            icon={Activity}
+            onClick={simulateIncident}
+            loading={loadingIncident}
+          />
+        </div>
+
+        {recoveryMessage && (
+          <div className="mt-5 flex items-start gap-3 rounded-xl border border-[#75E063]/20 bg-[#75E063]/[0.04] p-4">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 text-[#75E063]" />
+
+            <div>
+              <p className="text-sm font-medium text-[#75E063]">
+                Recovery Complete
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-gray-500">
+                {recoveryMessage}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {lastIncident && (
+        <div className="mt-8 rounded-2xl border border-red-500/20 bg-red-500/[0.025] p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10">
+              <AlertTriangle className="h-5 w-5 text-red-400" />
+            </div>
+
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-red-400">
+                Latest Incident
+              </p>
+
+              <h2 className="mt-1 text-lg font-semibold text-white">
+                {formatValue(
+                  lastIncident.incident_type
+                )}
+              </h2>
+
+              <p className="mt-2 text-xs leading-5 text-gray-500">
+                {formatValue(
+                  lastIncident.message
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-8 grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+        <MetricChart />
+        <ExecutionFeed />
+      </div>
+    </>
   )
 }
 
-
 /* =========================================================
-   PREDICTIVE INTELLIGENCE
+   TELEMETRY
 ========================================================= */
 
-function PredictionPanel({ prediction, services, metrics }) {
-  if (!prediction?.prediction) {
+function TelemetryStrip({ metrics }) {
+  const cards = [
+    {
+      title: "CPU Usage",
+      value:
+        metrics?.cpu_usage !== undefined
+          ? `${metrics.cpu_usage}%`
+          : "--",
+      subtitle: "Compute utilization",
+      icon: Gauge,
+      metric: "cpu",
+      raw: metrics?.cpu_usage,
+    },
+    {
+      title: "Memory",
+      value:
+        metrics?.memory_usage !== undefined
+          ? `${metrics.memory_usage}%`
+          : "--",
+      subtitle: "Memory utilization",
+      icon: Activity,
+      metric: "memory",
+      raw: metrics?.memory_usage,
+    },
+    {
+      title: "API Latency",
+      value:
+        metrics?.api_latency !== undefined
+          ? `${metrics.api_latency} ms`
+          : "--",
+      subtitle: "Average request latency",
+      icon: Clock,
+      metric: "latency",
+      raw: metrics?.api_latency,
+    },
+    {
+      title: "Error Rate",
+      value:
+        metrics?.error_rate !== undefined
+          ? `${metrics.error_rate}%`
+          : "--",
+      subtitle: "Application error rate",
+      icon: AlertTriangle,
+      metric: "error",
+      raw: metrics?.error_rate,
+    },
+  ]
+
+  return (
+    <section className="mt-8">
+      <SectionHeading
+        eyebrow="Live Telemetry"
+        title="Infrastructure Metrics"
+        icon={Activity}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => {
+          const severity = getSeverity(
+            card.metric,
+            card.raw
+          )
+
+          return (
+            <div
+              key={card.title}
+              className={`rounded-xl border bg-white/[0.025] p-5 ${
+                severity === "critical"
+                  ? "border-red-500/30"
+                  : severity === "elevated"
+                  ? "border-yellow-400/20"
+                  : "border-white/[0.07]"
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-gray-600">
+                    {card.title}
+                  </p>
+
+                  <p className="mt-3 text-2xl font-semibold text-white">
+                    {card.value}
+                  </p>
+
+                  <p className="mt-1 text-xs text-gray-600">
+                    {card.subtitle}
+                  </p>
+                </div>
+
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.025]">
+                  <card.icon className="h-4 w-4 text-violet-300" />
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center gap-2">
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    severity === "critical"
+                      ? "bg-red-500"
+                      : severity === "elevated"
+                      ? "bg-yellow-400"
+                      : "bg-[#75E063]"
+                  }`}
+                />
+
+                <span className="text-[10px] text-gray-500">
+                  {getSeverityText(severity)}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+/* =========================================================
+   PREDICTION
+========================================================= */
+
+function PredictionSummary({
+  prediction,
+  metrics,
+}) {
+  const data = prediction?.prediction
+
+  if (!data) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-6">
+      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#75E063]/20 bg-[#75E063]/10">
-            <Sparkles className="h-5 w-5 text-[#75E063]" />
-          </div>
+          <SparkIcon />
 
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-wider text-[#75E063]">
+            <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-violet-300">
               Predictive Intelligence
             </p>
 
@@ -1380,290 +1161,114 @@ function PredictionPanel({ prediction, services, metrics }) {
           </div>
         </div>
 
-        <div className="mt-6 rounded-xl border border-white/10 bg-black/10 p-6 text-center">
-          <Activity className="mx-auto h-6 w-6 animate-pulse text-gray-600" />
-
-          <p className="mt-3 text-sm text-gray-500">
-            Waiting for predictive telemetry...
-          </p>
-        </div>
+        <p className="mt-5 text-sm text-gray-600">
+          Waiting for predictive telemetry...
+        </p>
       </div>
     )
   }
 
-  const data = prediction.prediction
-
-  const riskScore = Number(data.risk_score || 0)
-  const confidence = Number(data.confidence || 0)
-
-  const signals = Array.isArray(data.signals)
-    ? data.signals
-    : []
-
-  const atRiskService = getAtRiskService(
-    data,
-    metrics,
-    services
+  const risk = Number(data.risk_score || 0)
+  const confidence = Number(
+    data.confidence || 0
   )
 
   const severity =
-    riskScore >= 70
+    risk >= 70
       ? "critical"
-      : riskScore >= 40
+      : risk >= 40
       ? "elevated"
       : "normal"
 
-  const severityStyles = {
-    critical: {
-      border: "border-red-500/30",
-      background: "bg-red-500/[0.035]",
-      icon: "border-red-500/20 bg-red-500/10",
-      iconText: "text-red-400",
-      text: "text-red-400",
-      bar: "bg-red-500",
-      label: "HIGH FAILURE RISK",
-    },
-
-    elevated: {
-      border: "border-yellow-400/25",
-      background: "bg-yellow-400/[0.025]",
-      icon: "border-yellow-400/20 bg-yellow-400/10",
-      iconText: "text-yellow-400",
-      text: "text-yellow-400",
-      bar: "bg-yellow-400",
-      label: "ELEVATED FAILURE RISK",
-    },
-
-    normal: {
-      border: "border-[#75E063]/20",
-      background: "bg-[#75E063]/[0.025]",
-      icon: "border-[#75E063]/20 bg-[#75E063]/10",
-      iconText: "text-[#75E063]",
-      text: "text-[#75E063]",
-      bar: "bg-[#75E063]",
-      label: "LOW FAILURE RISK",
-    },
-  }
-
-  const style = severityStyles[severity]
+  const riskColor =
+    severity === "critical"
+      ? "text-red-400"
+      : severity === "elevated"
+      ? "text-yellow-400"
+      : "text-[#75E063]"
 
   return (
-    <div
-      className={`rounded-2xl border p-6 ${style.border} ${style.background}`}
-    >
+    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
-          <div
-            className={`flex h-11 w-11 items-center justify-center rounded-xl border ${style.icon}`}
-          >
-            <Sparkles className={`h-5 w-5 ${style.iconText}`} />
-          </div>
+          <SparkIcon />
 
           <div>
-            <p className={`text-[11px] font-medium uppercase tracking-[0.18em] ${style.text}`}>
+            <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-violet-300">
               Predictive Intelligence
             </p>
 
             <h2 className="mt-1 text-lg font-semibold text-white">
-              Sentinel Predictive Engine
+              Failure Risk Assessment
             </h2>
-
-            <p className="mt-1 text-xs text-gray-600">
-              Continuous failure-risk assessment from live telemetry
-            </p>
           </div>
         </div>
 
-        <div
-          className={`flex items-center gap-2 self-start rounded-full border px-3 py-1.5 ${style.border}`}
+        <span
+          className={`rounded-full border px-3 py-1.5 text-[9px] font-semibold uppercase tracking-wider ${
+            severity === "critical"
+              ? "border-red-500/20 bg-red-500/10 text-red-400"
+              : severity === "elevated"
+              ? "border-yellow-400/20 bg-yellow-400/10 text-yellow-400"
+              : "border-[#75E063]/20 bg-[#75E063]/10 text-[#75E063]"
+          }`}
         >
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${style.bar} shadow-[0_0_8px_currentColor]`}
-          />
-
-          <span className={`text-[10px] font-semibold uppercase tracking-wider ${style.text}`}>
-            {data.warning_level || severity}
-          </span>
-        </div>
+          {data.warning_level ||
+            "LOW FAILURE RISK"}
+        </span>
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_1.5fr]">
+      <div className="mt-6 grid gap-4 lg:grid-cols-4">
+        <PredictionBox
+          label="Risk Score"
+          value={`${risk}/100`}
+          highlight
+          className={riskColor}
+        />
 
-        <div className="rounded-xl border border-white/10 bg-black/10 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-gray-600">
-                Failure Risk Score
-              </p>
-
-              <div className="mt-3 flex items-end gap-2">
-                <span className={`text-5xl font-semibold tracking-tight ${style.text}`}>
-                  {riskScore}
-                </span>
-
-                <span className="mb-1 text-sm text-gray-600">
-                  / 100
-                </span>
-              </div>
-            </div>
-
-            <div
-              className={`flex h-12 w-12 items-center justify-center rounded-xl border ${style.icon}`}
-            >
-              {riskScore >= 70 ? (
-                <ShieldAlert className={`h-5 w-5 ${style.iconText}`} />
-              ) : (
-                <Gauge className={`h-5 w-5 ${style.iconText}`} />
-              )}
-            </div>
-          </div>
-
-          <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/5">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ${style.bar}`}
-              style={{
-                width: `${Math.max(3, riskScore)}%`,
-              }}
-            />
-          </div>
-
-          <div className="mt-3 flex justify-between text-[9px] uppercase tracking-wider text-gray-700">
-            <span>Normal</span>
-            <span>Elevated</span>
-            <span>Critical</span>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-black/10 p-6">
-          <div className="grid gap-5 sm:grid-cols-2">
-
-            <PredictionValue
-              label="Predicted Incident"
-              value={formatValue(data.predicted_incident)}
-              icon={TriangleAlert}
-              highlight={severity !== "normal"}
-            />
-
-            <PredictionValue
-              label="At-Risk Service"
-              value={formatValue(atRiskService)}
-              icon={Server}
-            />
-
-            <PredictionValue
-              label="Model Confidence"
-              value={`${confidence}%`}
-              icon={Target}
-              highlight
-            />
-
-            <PredictionValue
-              label="Engine Status"
-              value="ACTIVE"
-              icon={Brain}
-              highlight
-            />
-
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-
-        <div className="rounded-xl border border-white/10 bg-black/10 p-5">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-gray-600">
-              Supporting Signals
-            </p>
-
-            <span className="text-[9px] uppercase tracking-wider text-gray-700">
-              {signals.length} detected
-            </span>
-          </div>
-
-          {signals.length > 0 ? (
-            <div className="mt-4 space-y-2">
-              {signals.map((signal, index) => (
-                <div
-                  key={index}
-                  className="flex items-start gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-3"
-                >
-                  <span
-                    className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${style.bar}`}
-                  />
-
-                  <span className="text-xs leading-5 text-gray-400">
-                    {formatValue(signal)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-4 rounded-lg border border-white/5 bg-white/[0.02] p-4">
-              <p className="text-xs text-gray-600">
-                No abnormal predictive signals detected.
-              </p>
-            </div>
+        <PredictionBox
+          label="Predicted Incident"
+          value={formatValue(
+            data.predicted_incident
           )}
-        </div>
+        />
 
-        <div className="rounded-xl border border-[#75E063]/15 bg-[#75E063]/[0.02] p-5">
-          <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-[#75E063]" />
+        <PredictionBox
+          label="Model Confidence"
+          value={`${confidence}%`}
+        />
 
-            <p className="text-[10px] font-medium uppercase tracking-wider text-[#75E063]">
-              Preventive Action
-            </p>
-          </div>
-
-          <p className="mt-4 text-sm leading-6 text-gray-300">
-            {formatValue(data.recommendation)}
-          </p>
-
-          <div className="mt-5 flex items-center gap-2 border-t border-white/10 pt-4">
-            <Activity className="h-3.5 w-3.5 text-[#75E063]" />
-
-            <p className="text-[10px] text-gray-600">
-              Prediction refreshes automatically from live infrastructure telemetry.
-            </p>
-          </div>
-        </div>
+        <PredictionBox
+          label="At-Risk Service"
+          value={formatValue(
+            data.predicted_incident ===
+              "cpu_saturation"
+              ? "order-service"
+              : metrics?.incident_type ||
+                  "Infrastructure"
+          )}
+        />
       </div>
     </div>
   )
 }
 
-
-/* =========================================================
-   PREDICTION VALUE
-========================================================= */
-
-function PredictionValue({
+function PredictionBox({
   label,
   value,
-  icon: Icon,
   highlight = false,
+  className = "",
 }) {
   return (
-    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-      <div className="flex items-center gap-2">
-        <Icon
-          className={`h-3.5 w-3.5 ${
-            highlight
-              ? "text-[#75E063]"
-              : "text-gray-600"
-          }`}
-        />
-
-        <p className="text-[9px] font-medium uppercase tracking-wider text-gray-600">
-          {label}
-        </p>
-      </div>
+    <div className="rounded-xl border border-white/[0.06] bg-black/10 p-4">
+      <p className="text-[9px] font-medium uppercase tracking-wider text-gray-600">
+        {label}
+      </p>
 
       <p
         className={`mt-3 text-sm font-medium ${
           highlight
-            ? "text-[#75E063]"
+            ? className || "text-[#75E063]"
             : "text-gray-300"
         }`}
       >
@@ -1673,320 +1278,409 @@ function PredictionValue({
   )
 }
 
-
-/* =========================================================
-   AT-RISK SERVICE
-========================================================= */
-
-function getAtRiskService(data, metrics, services) {
-  if (metrics?.incident_type === "payment_failure") {
-    return "payment-service"
-  }
-
-  if (metrics?.incident_type === "order_crash") {
-    return "order-service"
-  }
-
-  if (metrics?.incident_type === "api_failure") {
-    return "product-service"
-  }
-
-  if (metrics?.incident_type === "cpu_spike") {
-    return "order-service"
-  }
-
-  if (metrics?.incident_type === "memory_leak") {
-    return "product-service"
-  }
-
-  if (metrics?.incident_type === "db_down") {
-    return "inventory-service"
-  }
-
-  if (data.predicted_incident === "cpu_saturation") {
-    return "order-service"
-  }
-
-  if (data.predicted_incident === "memory_exhaustion") {
-    return "product-service"
-  }
-
-  if (data.predicted_incident === "api_degradation") {
-    return "product-service"
-  }
-
-  const degraded = services.find(
-    (service) => service.status !== "healthy"
-  )
-
-  return degraded?.name || "Infrastructure"
-}
-
-
-/* =========================================================
-   IMPACT PROPAGATION
-========================================================= */
-
-function ImpactPropagation({ impact }) {
-  const impactedServices = Array.isArray(impact.impacted_services)
-    ? [...impact.impacted_services].sort(
-        (a, b) => a.distance - b.distance
-      )
-    : []
-
-  const directImpact = impactedServices.filter(
-    (service) => service.distance === 1
-  )
-
-  const downstreamRisk = impactedServices.filter(
-    (service) => service.distance > 1
-  )
-
+function SparkIcon() {
   return (
-    <div className="mt-6 rounded-2xl border border-orange-500/20 bg-orange-500/[0.025] p-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-orange-500/20 bg-orange-500/10">
-            <Target className="h-5 w-5 text-orange-400" />
-          </div>
-
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-wider text-orange-400">
-              Impact Intelligence
-            </p>
-
-            <h3 className="mt-1 text-base font-semibold text-white">
-              Impact Propagation
-            </h3>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/10 px-3 py-1.5">
-          <GitBranch className="h-3.5 w-3.5 text-orange-400" />
-
-          <span className="text-[10px] font-medium uppercase tracking-wider text-orange-400">
-            {impact.blast_radius || 0} Services at Risk
-          </span>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-red-500/30 bg-red-500/[0.06] p-5">
-        <div className="flex items-center gap-3">
-          <span className="h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444]" />
-
-          <div>
-            <p className="text-[9px] font-medium uppercase tracking-[0.15em] text-red-400">
-              Root Failure
-            </p>
-
-            <p className="mt-1 text-sm font-semibold text-white">
-              {formatValue(impact.root_failure)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-orange-500/20 bg-orange-500/[0.025] p-5">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-orange-400">
-              Direct Impact
-            </p>
-
-            <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-2 py-1 text-[9px] text-orange-400">
-              Distance 1
-            </span>
-          </div>
-
-          {directImpact.length > 0 ? (
-            <div className="mt-4 space-y-2">
-              {directImpact.map((service) => (
-                <div
-                  key={service.service}
-                  className="flex items-center gap-3 rounded-lg border border-white/5 bg-black/10 px-3 py-3"
-                >
-                  <span className="h-2 w-2 rounded-full bg-orange-400 shadow-[0_0_7px_#fb923c]" />
-
-                  <span className="text-xs font-medium text-gray-300">
-                    {service.service}
-                  </span>
-
-                  <span className="ml-auto text-[9px] uppercase tracking-wider text-orange-400">
-                    affected
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-4 text-xs text-gray-600">
-              No direct downstream services detected.
-            </p>
-          )}
-        </div>
-
-        <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/[0.025] p-5">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-yellow-400">
-              Downstream Risk
-            </p>
-
-            <span className="rounded-full border border-yellow-400/20 bg-yellow-400/10 px-2 py-1 text-[9px] text-yellow-400">
-              Distance 2+
-            </span>
-          </div>
-
-          {downstreamRisk.length > 0 ? (
-            <div className="mt-4 space-y-2">
-              {downstreamRisk.map((service) => (
-                <div
-                  key={service.service}
-                  className="flex items-center gap-3 rounded-lg border border-white/5 bg-black/10 px-3 py-3"
-                >
-                  <span className="h-2 w-2 rounded-full bg-yellow-400 shadow-[0_0_7px_#facc15]" />
-
-                  <span className="text-xs font-medium text-gray-300">
-                    {service.service}
-                  </span>
-
-                  <span className="ml-auto text-[9px] uppercase tracking-wider text-yellow-400">
-                    Risk • D{service.distance}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-4 text-xs text-gray-600">
-              No additional downstream risk detected.
-            </p>
-          )}
-        </div>
-      </div>
-
-      {impactedServices.length > 0 && (
-        <div className="mt-4 rounded-xl border border-white/10 bg-black/10 p-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <FlowNode
-              label={formatValue(impact.root_failure)}
-              type="root"
-            />
-
-            {impactedServices.map((service) => (
-              <div
-                key={`${service.service}-${service.distance}`}
-                className="flex items-center gap-2"
-              >
-                <span className="text-gray-700">
-                  →
-                </span>
-
-                <FlowNode
-                  label={service.service}
-                  type={
-                    service.distance === 1
-                      ? "direct"
-                      : "risk"
-                  }
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-4">
-        <Network className="h-3.5 w-3.5 text-gray-600" />
-
-        <p className="text-[10px] text-gray-600">
-          Blast radius calculated from Sentinel's service dependency graph.
-        </p>
-      </div>
+    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-400/15 bg-violet-400/[0.06]">
+      <Brain className="h-5 w-5 text-violet-300" />
     </div>
   )
 }
 
-
 /* =========================================================
-   FLOW NODE
+   MONITORING
 ========================================================= */
 
-function FlowNode({ label, type }) {
-  const styles = {
-    root: {
-      border: "border-red-500/30",
-      background: "bg-red-500/10",
-      text: "text-red-400",
-    },
-
-    direct: {
-      border: "border-orange-500/20",
-      background: "bg-orange-500/10",
-      text: "text-orange-400",
-    },
-
-    risk: {
-      border: "border-yellow-400/20",
-      background: "bg-yellow-400/10",
-      text: "text-yellow-400",
-    },
-  }
-
-  const style = styles[type] || styles.risk
-
+function MonitoringPage({
+  metrics,
+  prediction,
+  services,
+  backendOnline,
+}) {
   return (
-    <span
-      className={`rounded-lg border px-3 py-2 text-[10px] font-medium ${style.border} ${style.background} ${style.text}`}
-    >
-      {label}
-    </span>
+    <>
+      <PageHeader
+        eyebrow="Observability"
+        title="Monitoring"
+        description="Live infrastructure telemetry, failure risk, and production service status."
+        icon={Activity}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          title="CPU"
+          value={
+            metrics?.cpu_usage !== undefined
+              ? `${metrics.cpu_usage}%`
+              : "--"
+          }
+          subtitle="Current utilization"
+          icon={Gauge}
+          status="Live telemetry"
+        />
+
+        <MetricCard
+          title="Memory"
+          value={
+            metrics?.memory_usage !==
+            undefined
+              ? `${metrics.memory_usage}%`
+              : "--"
+          }
+          subtitle="Current utilization"
+          icon={Activity}
+          status="Live telemetry"
+        />
+
+        <MetricCard
+          title="Latency"
+          value={
+            metrics?.api_latency !==
+            undefined
+              ? `${metrics.api_latency} ms`
+              : "--"
+          }
+          subtitle="Average API latency"
+          icon={Clock}
+          status="Live telemetry"
+        />
+
+        <MetricCard
+          title="Error Rate"
+          value={
+            metrics?.error_rate !==
+            undefined
+              ? `${metrics.error_rate}%`
+              : "--"
+          }
+          subtitle="Application failures"
+          icon={AlertTriangle}
+          status="Live telemetry"
+        />
+      </div>
+
+      <TelemetryStrip metrics={metrics} />
+
+      <div className="mt-8">
+        <PredictionSummary
+          prediction={prediction}
+          metrics={metrics}
+        />
+      </div>
+
+      <div className="mt-8">
+        <SectionHeading
+          eyebrow="Infrastructure"
+          title="Service Status"
+          icon={Server}
+        />
+
+        <ServicesGrid
+          services={services}
+        />
+      </div>
+
+      <div className="mt-8 grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+        <MetricChart />
+        <ExecutionFeed />
+      </div>
+
+      <div className="mt-8 rounded-xl border border-white/[0.07] bg-white/[0.02] p-5">
+        <div className="flex items-center gap-3">
+          <span
+            className={`h-2.5 w-2.5 rounded-full ${
+              backendOnline
+                ? "bg-[#75E063]"
+                : "bg-red-500"
+            }`}
+          />
+
+          <p className="text-sm text-gray-300">
+            {backendOnline
+              ? "Monitoring backend connected"
+              : "Monitoring backend unavailable"}
+          </p>
+        </div>
+      </div>
+    </>
   )
 }
 
-
 /* =========================================================
-   DEPENDENCY GRAPH PANEL
+   AI INVESTIGATION
 ========================================================= */
 
-function DependencyGraphPanel({ graph, services }) {
-  if (!graph) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-8 text-center">
-        <Network className="mx-auto h-8 w-8 text-gray-700" />
+function AIInvestigationPage({
+  incident,
+  services,
+  onTrigger,
+  loading,
+}) {
+  return (
+    <>
+      <PageHeader
+        eyebrow="AI Core"
+        title="AI Investigation"
+        description="Let Sentinel investigate active production incidents and expose evidence, confidence, root cause, and recommended action."
+        icon={Brain}
+      />
 
-        <p className="mt-4 text-sm text-gray-500">
-          Loading dependency intelligence...
-        </p>
+      {incident ? (
+        <AIInvestigation
+          incident={incident}
+        />
+      ) : (
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-8">
+          <div className="mx-auto max-w-xl text-center">
+            <Brain className="mx-auto h-10 w-10 text-violet-300" />
+
+            <h2 className="mt-5 text-xl font-semibold text-white">
+              No active investigation
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              Trigger a controlled incident to
+              activate Sentinel's investigation
+              pipeline.
+            </p>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() =>
+                  onTrigger(
+                    "payment_failure"
+                  )
+                }
+                className="rounded-xl border border-violet-400/20 bg-violet-400/[0.06] px-4 py-3 text-sm text-violet-200 transition hover:bg-violet-400/[0.1] disabled:opacity-40"
+              >
+                Simulate Payment Failure
+              </button>
+
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() =>
+                  onTrigger(
+                    "db_down"
+                  )
+                }
+                className="rounded-xl border border-violet-400/20 bg-violet-400/[0.06] px-4 py-3 text-sm text-violet-200 transition hover:bg-violet-400/[0.1] disabled:opacity-40"
+              >
+                Simulate Database Down
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {services.length > 0 && (
+        <div className="mt-8 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6">
+          <p className="text-[10px] uppercase tracking-wider text-gray-600">
+            Investigation Context
+          </p>
+
+          <p className="mt-3 text-sm text-gray-400">
+            Sentinel currently monitors{" "}
+            <span className="text-white">
+              {services.length}
+            </span>{" "}
+            production services.
+          </p>
+        </div>
+      )}
+    </>
+  )
+}
+
+/* =========================================================
+   SERVICES
+========================================================= */
+
+function ServicesPage({
+  services,
+  backendOnline,
+  healthPercentage,
+}) {
+  return (
+    <>
+      <PageHeader
+        eyebrow="Infrastructure"
+        title="Services"
+        description="Every registered production service monitored by Sentinel AI."
+        icon={Server}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <MetricCard
+          title="Total Services"
+          value={services.length}
+          subtitle="Registered services"
+          icon={Server}
+          status={
+            backendOnline
+              ? "Live"
+              : "Offline"
+          }
+        />
+
+        <MetricCard
+          title="Healthy"
+          value={
+            services.filter(
+              (service) =>
+                service.status ===
+                "healthy"
+            ).length
+          }
+          subtitle="Healthy services"
+          icon={CheckCircle2}
+          status={`${healthPercentage}% health`}
+        />
+
+        <MetricCard
+          title="Degraded"
+          value={
+            services.filter(
+              (service) =>
+                service.status !==
+                "healthy"
+            ).length
+          }
+          subtitle="Services requiring attention"
+          icon={AlertTriangle}
+          status="Review required"
+        />
       </div>
+
+      <div className="mt-8">
+        <ServicesGrid
+          services={services}
+        />
+      </div>
+    </>
+  )
+}
+
+function ServicesGrid({ services }) {
+  if (!services.length) {
+    return (
+      <EmptyState
+        icon={Server}
+        title="No services found"
+        description="Make sure the Sentinel backend is running."
+      />
     )
   }
 
-  const dependencies = graph.dependencies || []
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {services.map((service) => (
+        <ServiceCard
+          key={service.id}
+          service={service}
+        />
+      ))}
+    </div>
+  )
+}
+
+/* =========================================================
+   DEPENDENCIES
+========================================================= */
+
+function DependenciesPage({
+  graph,
+  services,
+}) {
+  return (
+    <>
+      <PageHeader
+        eyebrow="Architecture Intelligence"
+        title="Dependencies"
+        description="Understand how failures propagate through the production service graph."
+        icon={GitBranch}
+      />
+
+      <DependencyGraph
+        graph={graph}
+        services={services}
+      />
+
+      <div className="mt-8 rounded-2xl border border-violet-400/10 bg-violet-400/[0.025] p-6">
+        <div className="flex items-start gap-3">
+          <Network className="mt-0.5 h-5 w-5 text-violet-300" />
+
+          <div>
+            <p className="text-sm font-medium text-white">
+              Dependency intelligence
+            </p>
+
+            <p className="mt-1 text-xs leading-5 text-gray-600">
+              Sentinel uses service relationships
+              to reason about direct impact and
+              downstream risk during incidents.
+            </p>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+function DependencyGraph({
+  graph,
+  services,
+}) {
+  if (!graph) {
+    return (
+      <EmptyState
+        icon={Network}
+        title="Dependency graph unavailable"
+        description="Waiting for dependency intelligence from the backend."
+      />
+    )
+  }
+
+  const dependencies =
+    graph.dependencies || []
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-6">
+    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {services.map((service) => {
-          const serviceDependencies = dependencies
-            .filter((item) => item.service === service.name)
-            .map((item) => item.depends_on)
+          const items =
+            dependencies
+              .filter(
+                (item) =>
+                  item.service ===
+                  service.name
+              )
+              .map(
+                (item) =>
+                  item.depends_on
+              )
 
-          const isDegraded = service.status !== "healthy"
+          const degraded =
+            service.status !==
+            "healthy"
 
           return (
             <div
               key={service.id}
-              className={`rounded-xl border p-5 transition ${
-                isDegraded
-                  ? "border-red-500/30 bg-red-500/[0.04]"
-                  : "border-white/10 bg-black/10 hover:border-[#75E063]/30"
+              className={`rounded-xl border p-5 ${
+                degraded
+                  ? "border-red-500/20 bg-red-500/[0.035]"
+                  : "border-white/[0.06] bg-black/10"
               }`}
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <span
-                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                      isDegraded
-                        ? "bg-red-500 shadow-[0_0_8px_#ef4444]"
-                        : "bg-[#75E063] shadow-[0_0_8px_#75E063]"
+                    className={`h-2 w-2 shrink-0 rounded-full ${
+                      degraded
+                        ? "bg-red-500"
+                        : "bg-[#75E063]"
                     }`}
                   />
 
@@ -1996,8 +1690,8 @@ function DependencyGraphPanel({ graph, services }) {
                 </div>
 
                 <span
-                  className={`text-[9px] font-medium uppercase tracking-wider ${
-                    isDegraded
+                  className={`text-[9px] uppercase tracking-wider ${
+                    degraded
                       ? "text-red-400"
                       : "text-[#75E063]"
                   }`}
@@ -2006,201 +1700,541 @@ function DependencyGraphPanel({ graph, services }) {
                 </span>
               </div>
 
-              {serviceDependencies.length > 0 ? (
-                <div className="mt-4">
-                  <p className="mb-2 text-[9px] font-medium uppercase tracking-wider text-gray-600">
+              {items.length ? (
+                <div className="mt-4 space-y-2">
+                  <p className="text-[9px] uppercase tracking-wider text-gray-600">
                     Depends on
                   </p>
 
-                  <div className="space-y-2">
-                    {serviceDependencies.map((dependency) => (
-                      <div
-                        key={dependency}
-                        className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.025] px-3 py-2"
-                      >
-                        <span className="text-[#75E063]">
-                          →
-                        </span>
+                  {items.map((dependency) => (
+                    <div
+                      key={dependency}
+                      className="flex items-center gap-2 rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2"
+                    >
+                      <span className="text-violet-300">
+                        →
+                      </span>
 
-                        <span className="text-xs text-gray-400">
-                          {dependency}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                      <span className="text-xs text-gray-400">
+                        {dependency}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <div className="mt-4 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2">
-                  <p className="text-xs text-gray-600">
-                    Root-level service
-                  </p>
-                </div>
+                <p className="mt-4 rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2 text-xs text-gray-600">
+                  Root-level service
+                </p>
               )}
             </div>
           )
         })}
       </div>
-
-      <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-white/10 pt-4 text-[10px] text-gray-600">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-[#75E063]" />
-          Healthy dependency
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-red-500" />
-          Degraded service
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-[#75E063]">→</span>
-          Dependency relationship
-        </div>
-      </div>
     </div>
   )
 }
 
-
 /* =========================================================
-   TELEMETRY CARD
+   REMEDIATION
 ========================================================= */
 
-function TelemetryCard({
-  title,
-  value,
-  subtitle,
-  icon: Icon,
-  state = "normal",
+function RemediationPage({
+  incident,
+  recoveryMessage,
+  recovering,
+  degradedServices,
+  onRecover,
 }) {
-  const styles = {
-    normal: {
-      border: "border-white/10",
-      icon: "border-[#75E063]/20 bg-[#75E063]/5 text-[#75E063]",
-      status: "text-[#75E063]",
-      dot: "bg-[#75E063]",
-      label: "Normal telemetry",
-    },
+  return (
+    <>
+      <PageHeader
+        eyebrow="Recovery Control"
+        title="Remediation"
+        description="Recover degraded infrastructure through Sentinel's controlled recovery flow."
+        icon={Wrench}
+      />
 
-    elevated: {
-      border: "border-yellow-400/20",
-      icon: "border-yellow-400/20 bg-yellow-400/5 text-yellow-400",
-      status: "text-yellow-400",
-      dot: "bg-yellow-400",
-      label: "Elevated utilization",
-    },
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#75E063]/15 bg-[#75E063]/[0.05]">
+              <ShieldCheck className="h-5 w-5 text-[#75E063]" />
+            </div>
 
-    critical: {
-      border: "border-red-500/30",
-      icon: "border-red-500/20 bg-red-500/10 text-red-400",
-      status: "text-red-400",
-      dot: "bg-red-400",
-      label: "Critical threshold",
-    },
-  }
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-gray-600">
+                Recovery Status
+              </p>
 
-  const style = styles[state] || styles.normal
+              <h2 className="mt-1 text-lg font-semibold text-white">
+                {degradedServices.length
+                  ? "Attention Required"
+                  : "System Stable"}
+              </h2>
+            </div>
+          </div>
+
+          <p className="mt-5 text-sm leading-6 text-gray-500">
+            {degradedServices.length
+              ? `${degradedServices.length} service(s) are currently degraded.`
+              : "No degraded services detected."}
+          </p>
+
+          <button
+            type="button"
+            onClick={onRecover}
+            disabled={
+              recovering ||
+              degradedServices.length ===
+                0
+            }
+            className="mt-6 flex items-center gap-2 rounded-xl border border-[#75E063]/25 bg-[#75E063]/10 px-5 py-3 text-sm font-medium text-[#75E063] disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${
+                recovering
+                  ? "animate-spin"
+                  : ""
+              }`}
+            />
+
+            {recovering
+              ? "Recovering..."
+              : "Recover Services"}
+          </button>
+        </div>
+
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6">
+          <p className="text-[10px] uppercase tracking-wider text-gray-600">
+            Current Incident
+          </p>
+
+          <h2 className="mt-2 text-lg font-semibold text-white">
+            {incident
+              ? formatValue(
+                  incident.incident_type
+                )
+              : "No active incident"}
+          </h2>
+
+          {incident && (
+            <div className="mt-5 space-y-3">
+              <DetailRow
+                label="Affected Service"
+                value={
+                  incident.affected_service
+                }
+              />
+
+              <DetailRow
+                label="Status"
+                value={incident.status}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {recoveryMessage && (
+        <div className="mt-6 rounded-xl border border-[#75E063]/20 bg-[#75E063]/[0.04] p-5">
+          <p className="text-sm font-medium text-[#75E063]">
+            Recovery Result
+          </p>
+
+          <p className="mt-2 text-xs leading-5 text-gray-500">
+            {recoveryMessage}
+          </p>
+        </div>
+      )}
+    </>
+  )
+}
+
+/* =========================================================
+   INCIDENT MEMORY
+========================================================= */
+
+function IncidentMemoryPage({
+  memory,
+  loading,
+  onRefresh,
+}) {
+  return (
+    <>
+      <PageHeader
+        eyebrow="Persistent Intelligence"
+        title="Incident Memory"
+        description="Historical incident knowledge stored by Sentinel and used to improve future investigations."
+        icon={History}
+      />
+
+      <div className="mb-6 flex items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3">
+        <div>
+          <p className="text-sm text-white">
+            {memory.length} historical incident
+            {memory.length === 1
+              ? ""
+              : "s"}
+          </p>
+
+          <p className="mt-1 text-[10px] text-gray-600">
+            Stored in Sentinel incident memory
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={loading}
+          className="flex items-center gap-2 rounded-lg border border-white/[0.07] bg-white/[0.025] px-3 py-2 text-xs text-gray-400 hover:text-white disabled:opacity-40"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${
+              loading
+                ? "animate-spin"
+                : ""
+            }`}
+          />
+          Refresh
+        </button>
+      </div>
+
+      {loading ? (
+        <EmptyState
+          icon={History}
+          title="Loading incident memory"
+          description="Sentinel is retrieving historical incidents."
+        />
+      ) : memory.length === 0 ? (
+        <EmptyState
+          icon={History}
+          title="No incidents stored yet"
+          description="Run a controlled incident and Sentinel will record the investigation and recovery outcome."
+        />
+      ) : (
+        <div className="space-y-4">
+          {memory.map((item) => (
+            <div
+              key={item.id}
+              className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6"
+            >
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        item.recovery_success
+                          ? "bg-[#75E063]"
+                          : "bg-red-500"
+                      }`}
+                    />
+
+                    <p className="text-sm font-semibold text-white">
+                      {formatValue(
+                        item.incident_type
+                      )}
+                    </p>
+                  </div>
+
+                  <p className="mt-2 text-xs text-gray-600">
+                    {formatValue(
+                      item.affected_service
+                    )}
+                  </p>
+                </div>
+
+                <span
+                  className={`rounded-full border px-3 py-1.5 text-[9px] uppercase tracking-wider ${
+                    item.recovery_success
+                      ? "border-[#75E063]/20 bg-[#75E063]/10 text-[#75E063]"
+                      : "border-red-500/20 bg-red-500/10 text-red-400"
+                  }`}
+                >
+                  {item.recovery_success
+                    ? "Recovery successful"
+                    : "Recovery unresolved"}
+                </span>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <DetailRow
+                  label="Root Cause"
+                  value={item.root_cause}
+                />
+
+                <DetailRow
+                  label="Recovery Action"
+                  value={
+                    item.recovery_action
+                  }
+                />
+
+                <DetailRow
+                  label="Confidence"
+                  value={
+                    item.confidence !==
+                    null
+                      ? `${item.confidence}%`
+                      : "Unknown"
+                  }
+                />
+
+                <DetailRow
+                  label="Recovery Time"
+                  value={
+                    item.recovery_time_seconds !==
+                    null
+                      ? `${item.recovery_time_seconds}s`
+                      : "Unknown"
+                  }
+                />
+              </div>
+
+              {item.lesson && (
+                <div className="mt-4 rounded-xl border border-violet-400/10 bg-violet-400/[0.025] p-4">
+                  <p className="text-[9px] uppercase tracking-wider text-violet-300">
+                    Lesson Learned
+                  </p>
+
+                  <p className="mt-2 text-xs leading-5 text-gray-400">
+                    {item.lesson}
+                  </p>
+                </div>
+              )}
+
+              {item.created_at && (
+                <p className="mt-4 text-[9px] text-gray-700">
+                  {new Date(
+                    item.created_at
+                  ).toLocaleString()}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
+/* =========================================================
+   SYSTEM HEALTH
+========================================================= */
+
+function SystemHealthPage({
+  services,
+  metrics,
+  backendOnline,
+  healthPercentage,
+}) {
+  const states = services.map(
+    (service) => service.status
+  )
+
+  const degraded = states.filter(
+    (state) => state !== "healthy"
+  ).length
 
   return (
-    <div
-      className={`group rounded-xl border bg-white/[0.03] p-5 transition hover:bg-white/[0.05] ${style.border}`}
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-gray-600">
-            {title}
-          </p>
+    <>
+      <PageHeader
+        eyebrow="System Status"
+        title="System Health"
+        description="A high-level view of Sentinel and the production environment it monitors."
+        icon={ShieldCheck}
+      />
 
-          <h3 className="mt-3 text-2xl font-semibold text-white">
-            {value}
-          </h3>
-
-          <p className="mt-1 text-xs text-gray-500">
-            {subtitle}
-          </p>
-        </div>
-
-        <div
-          className={`flex h-10 w-10 items-center justify-center rounded-lg border ${style.icon}`}
-        >
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-
-      <div className="mt-4 flex items-center gap-2">
-        <span
-          className={`h-1.5 w-1.5 rounded-full ${style.dot}`}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <HealthCard
+          label="Backend"
+          value={
+            backendOnline
+              ? "Operational"
+              : "Offline"
+          }
+          good={backendOnline}
+          icon={Server}
         />
 
-        <span className={`text-[11px] ${style.status}`}>
-          {style.label}
-        </span>
+        <HealthCard
+          label="Infrastructure"
+          value={`${healthPercentage}%`}
+          good={healthPercentage >= 90}
+          icon={ShieldCheck}
+        />
+
+        <HealthCard
+          label="Degraded Services"
+          value={degraded}
+          good={degraded === 0}
+          icon={AlertTriangle}
+        />
+
+        <HealthCard
+          label="Telemetry"
+          value={
+            metrics
+              ? "Live"
+              : "Waiting"
+          }
+          good={Boolean(metrics)}
+          icon={Activity}
+        />
+      </div>
+
+      <div className="mt-8">
+        <SectionHeading
+          eyebrow="Service Health"
+          title="Current Infrastructure"
+          icon={Server}
+        />
+
+        <ServicesGrid
+          services={services}
+        />
+      </div>
+    </>
+  )
+}
+
+function HealthCard({
+  label,
+  value,
+  good,
+  icon: Icon,
+}) {
+  return (
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[9px] uppercase tracking-wider text-gray-600">
+            {label}
+          </p>
+
+          <p
+            className={`mt-3 text-lg font-semibold ${
+              good
+                ? "text-[#75E063]"
+                : "text-red-400"
+            }`}
+          >
+            {value}
+          </p>
+        </div>
+
+        <Icon
+          className={`h-5 w-5 ${
+            good
+              ? "text-[#75E063]"
+              : "text-red-400"
+          }`}
+        />
       </div>
     </div>
   )
 }
 
-
 /* =========================================================
-   TELEMETRY SEVERITY
+   SETTINGS
 ========================================================= */
 
-function getMetricSeverity(metric, value) {
-  if (value === undefined || value === null) {
-    return "normal"
-  }
+function SettingsPage({
+  backendOnline,
+  apiBase,
+}) {
+  return (
+    <>
+      <PageHeader
+        eyebrow="System Configuration"
+        title="Settings"
+        description="Sentinel runtime and connection configuration."
+        icon={Settings}
+      />
 
-  if (metric === "cpu") {
-    if (value >= 85) return "critical"
-    if (value >= 70) return "elevated"
-  }
+      <div className="space-y-4">
+        <SettingRow
+          title="Permanent Dark Interface"
+          description="Sentinel uses the premium dark operations interface."
+          value="Enabled"
+        />
 
-  if (metric === "memory") {
-    if (value >= 85) return "critical"
-    if (value >= 70) return "elevated"
-  }
+        <SettingRow
+          title="Backend Connection"
+          description="Connection state for the Sentinel FastAPI backend."
+          value={
+            backendOnline
+              ? "Connected"
+              : "Offline"
+          }
+        />
 
-  if (metric === "latency") {
-    if (value >= 1000) return "critical"
-    if (value >= 400) return "elevated"
-  }
+        <SettingRow
+          title="API Endpoint"
+          description="Current frontend API connection target."
+          value={apiBase}
+        />
 
-  if (metric === "error") {
-    if (value >= 10) return "critical"
-    if (value >= 3) return "elevated"
-  }
-
-  return "normal"
+        <SettingRow
+          title="Telemetry Refresh"
+          description="Live metrics refresh automatically from the backend."
+          value="Active"
+        />
+      </div>
+    </>
+  )
 }
 
+function SettingRow({
+  title,
+  description,
+  value,
+}) {
+  return (
+    <div className="flex flex-col gap-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="text-sm font-medium text-white">
+          {title}
+        </p>
 
-function getTelemetryState(metrics) {
-  if (!metrics) {
-    return "normal"
-  }
+        <p className="mt-1 text-xs leading-5 text-gray-600">
+          {description}
+        </p>
+      </div>
 
-  const states = [
-    getMetricSeverity("cpu", metrics.cpu_usage),
-    getMetricSeverity("memory", metrics.memory_usage),
-    getMetricSeverity("latency", metrics.api_latency),
-    getMetricSeverity("error", metrics.error_rate),
-  ]
-
-  if (states.includes("critical")) {
-    return "critical"
-  }
-
-  if (states.includes("elevated")) {
-    return "elevated"
-  }
-
-  return "normal"
+      <span className="rounded-lg border border-white/[0.07] bg-black/10 px-3 py-2 text-xs text-gray-400">
+        {value}
+      </span>
+    </div>
+  )
 }
-
 
 /* =========================================================
-   INCIDENT BUTTON
+   SHARED UI
 ========================================================= */
+
+function SectionHeading({
+  eyebrow,
+  title,
+  icon: Icon,
+}) {
+  return (
+    <div className="mb-5">
+      <div className="flex items-center gap-2">
+        {Icon && (
+          <Icon className="h-4 w-4 text-[#75E063]" />
+        )}
+
+        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#75E063]">
+          {eyebrow}
+        </p>
+      </div>
+
+      <h2 className="mt-1 text-lg font-semibold text-white">
+        {title}
+      </h2>
+    </div>
+  )
+}
 
 function IncidentButton({
   label,
@@ -2211,12 +2245,15 @@ function IncidentButton({
 }) {
   return (
     <button
-      onClick={() => onClick(type)}
+      type="button"
+      onClick={() =>
+        onClick(type)
+      }
       disabled={loading}
-      className="group flex items-center gap-3 rounded-xl border border-white/10 bg-black/10 p-4 text-left transition hover:border-red-500/20 hover:bg-red-500/[0.03] disabled:cursor-not-allowed disabled:opacity-40"
+      className="group flex items-center gap-3 rounded-xl border border-white/[0.07] bg-black/10 p-4 text-left transition hover:border-red-500/20 hover:bg-red-500/[0.025] disabled:cursor-not-allowed disabled:opacity-40"
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] transition group-hover:border-red-500/20 group-hover:bg-red-500/10">
-        <Icon className="h-4 w-4 text-gray-500 group-hover:text-red-400" />
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.025]">
+        <Icon className="h-4 w-4 text-gray-500 transition group-hover:text-red-400" />
       </div>
 
       <div className="min-w-0">
@@ -2224,181 +2261,63 @@ function IncidentButton({
           {label}
         </p>
 
-        <p className="mt-1 text-[10px] text-gray-700">
-          Inject failure
+        <p className="mt-1 text-[9px] text-gray-700">
+          Inject controlled failure
         </p>
       </div>
     </button>
   )
 }
 
-
-/* =========================================================
-   INCIDENT DETAIL
-========================================================= */
-
-function IncidentDetail({ label, value }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-black/10 p-4">
-      <p className="text-[10px] font-medium uppercase tracking-wider text-gray-600">
-        {label}
-      </p>
-
-      <p className="mt-2 truncate text-sm font-medium text-gray-300">
-        {formatValue(value)}
-      </p>
-    </div>
-  )
-}
-
-
-/* =========================================================
-   ROOT CAUSE
-========================================================= */
-
-function RootCauseAnalysis({ analysis }) {
-  const evidence = Array.isArray(analysis.evidence)
-    ? analysis.evidence
-    : []
-
-  return (
-    <section className="mt-8 rounded-2xl border border-[#75E063]/20 bg-[#75E063]/[0.025] p-6">
-      <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#75E063]/20 bg-[#75E063]/10">
-          <Shield className="h-5 w-5 text-[#75E063]" />
-        </div>
-
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-wider text-[#75E063]">
-            AI Root Cause Analysis
-          </p>
-
-          <h2 className="mt-1 text-lg font-semibold text-white">
-            Root Cause Identified
-          </h2>
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <AnalysisBox
-          label="Root Cause"
-          value={analysis.root_cause}
-        />
-
-        <AnalysisBox
-          label="AI Confidence"
-          value={
-            analysis.confidence !== undefined
-              ? `${analysis.confidence}% confidence`
-              : "Unknown"
-          }
-          highlight
-        />
-
-        <AnalysisBox
-          label="Business Impact"
-          value={analysis.impact}
-        />
-
-        <AnalysisBox
-          label="Recommendation"
-          value={analysis.recommendation}
-        />
-      </div>
-
-      {evidence.length > 0 && (
-        <div className="mt-4 rounded-xl border border-white/10 bg-black/10 p-5">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-gray-600">
-            Evidence
-          </p>
-
-          <div className="mt-3 space-y-2">
-            {evidence.map((item, index) => (
-              <div
-                key={index}
-                className="flex items-start gap-3 text-sm text-gray-400"
-              >
-                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#75E063]" />
-                <span>{formatValue(item)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </section>
-  )
-}
-
-
-/* =========================================================
-   ANALYSIS BOX
-========================================================= */
-
-function AnalysisBox({
+function DetailRow({
   label,
   value,
-  highlight = false,
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-black/10 p-5">
-      <p className="text-[10px] font-medium uppercase tracking-wider text-gray-600">
+    <div className="rounded-lg border border-white/[0.05] bg-black/10 p-3">
+      <p className="text-[8px] uppercase tracking-wider text-gray-700">
         {label}
       </p>
 
-      <p
-        className={`mt-3 text-sm leading-6 ${
-          highlight
-            ? "text-[#75E063]"
-            : "text-gray-300"
-        }`}
-      >
+      <p className="mt-1 truncate text-xs text-gray-400">
         {formatValue(value)}
       </p>
     </div>
   )
 }
 
+function EmptyState({
+  icon: Icon,
+  title,
+  description,
+}) {
+  return (
+    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-10 text-center">
+      <Icon className="mx-auto h-8 w-8 text-gray-700" />
 
-/* =========================================================
-   SAFE VALUE FORMATTER
-========================================================= */
+      <h3 className="mt-4 text-sm font-medium text-gray-400">
+        {title}
+      </h3>
 
-function formatValue(value) {
-  if (value === null || value === undefined) {
-    return "Unknown"
-  }
-
-  if (typeof value === "string") {
-    return value.replace(/_/g, " ")
-  }
-
-  if (
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return String(value)
-  }
-
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => formatValue(item))
-      .join(", ")
-  }
-
-  if (typeof value === "object") {
-    if (value.message) {
-      return String(value.message)
-    }
-
-    if (value.type) {
-      return String(value.type).replace(/_/g, " ")
-    }
-
-    return JSON.stringify(value)
-  }
-
-  return String(value)
+      <p className="mx-auto mt-2 max-w-md text-xs leading-5 text-gray-700">
+        {description}
+      </p>
+    </div>
+  )
 }
 
+function AIInvestigationPlaceholder() {
+  return null
+}
+
+function HealthStatusIcon({
+  good,
+}) {
+  return good ? (
+    <CheckCircle2 className="h-4 w-4 text-[#75E063]" />
+  ) : (
+    <AlertTriangle className="h-4 w-4 text-red-400" />
+  )
+}
 
 export default App

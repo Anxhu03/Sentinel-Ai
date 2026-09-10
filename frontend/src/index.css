@@ -1,1 +1,558 @@
 @import "tailwindcss";
+
+/* =========================================================
+   SENTINEL AI — GLOBAL DESIGN SYSTEM
+   Premium cinematic SaaS / dark + light themes
+   ========================================================= */
+
+:root {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  overflow-x: hidden;
+  background: #07070a;
+}
+
+/* =========================================================
+   ROOT APP
+   ========================================================= */
+
+.sentinel-app {
+  min-height: 100vh;
+  background:
+    radial-gradient(
+      circle at 75% 5%,
+      rgba(104, 76, 180, 0.10),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 35% 45%,
+      rgba(65, 72, 160, 0.055),
+      transparent 34%
+    ),
+    #07070a;
+
+  color: #ffffff;
+  transition:
+    background 350ms ease,
+    color 250ms ease;
+}
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.28) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.24);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.42);
+}
+
+/* =========================================================
+   SELECTION
+   ========================================================= */
+
+::selection {
+  background: rgba(139, 92, 246, 0.28);
+  color: #ffffff;
+}
+
+/* =========================================================
+   PREMIUM TRANSITIONS
+   ========================================================= */
+
+button,
+a,
+input,
+select,
+textarea {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+/* =========================================================
+   DARK MODE
+   ========================================================= */
+
+html.dark .sentinel-app {
+  background:
+    radial-gradient(
+      circle at 78% 0%,
+      rgba(109, 75, 190, 0.12),
+      transparent 31%
+    ),
+    radial-gradient(
+      circle at 30% 40%,
+      rgba(47, 55, 130, 0.055),
+      transparent 35%
+    ),
+    #07070a;
+}
+
+/* =========================================================
+   LIGHT MODE
+   ========================================================= */
+
+html.light {
+  color-scheme: light;
+}
+
+html.light,
+html.light body {
+  background: #f5f4fa;
+}
+
+html.light .sentinel-app {
+  background:
+    radial-gradient(
+      circle at 78% 0%,
+      rgba(124, 92, 190, 0.13),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 35% 42%,
+      rgba(111, 104, 190, 0.075),
+      transparent 34%
+    ),
+    linear-gradient(
+      135deg,
+      #f7f6fb 0%,
+      #f2f1f8 50%,
+      #f7f6fb 100%
+    );
+
+  color: #151827;
+}
+
+/* =========================================================
+   LIGHT MODE — MAIN CONTENT ONLY
+   Sidebar is intentionally excluded.
+   ========================================================= */
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main {
+  color: #171a2b;
+}
+
+/* ---------------------------------------------------------
+   Topbar
+   --------------------------------------------------------- */
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  header {
+  background:
+    rgba(250, 249, 253, 0.82) !important;
+
+  border-color:
+    rgba(65, 53, 105, 0.09) !important;
+
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.75),
+    0 12px 35px rgba(45, 37, 75, 0.035) !important;
+}
+
+/* ---------------------------------------------------------
+   Main neutral surfaces
+   --------------------------------------------------------- */
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="bg-white/"] {
+  background:
+    rgba(255, 255, 255, 0.76) !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="bg-black/"] {
+  background:
+    rgba(255, 255, 255, 0.72) !important;
+}
+
+/* ---------------------------------------------------------
+   Remove dark atmospheric gradients from dashboard surfaces
+   --------------------------------------------------------- */
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="from-white/"] {
+  background-image: none !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="via-violet-500/"] {
+  background-image: none !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="to-indigo-500/"] {
+  background-image: none !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="to-violet-500/"] {
+  background-image: none !important;
+}
+
+/* ---------------------------------------------------------
+   Neutral borders
+   --------------------------------------------------------- */
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="border-white/"] {
+  border-color:
+    rgba(74, 61, 116, 0.11) !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="border-white/["] {
+  border-color:
+    rgba(74, 61, 116, 0.11) !important;
+}
+
+/* ---------------------------------------------------------
+   Primary text
+   --------------------------------------------------------- */
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class~="text-white"] {
+  color: #171a2b !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="text-white/90"] {
+  color: #292d40 !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="text-white/80"] {
+  color: #3e4358 !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="text-white/70"] {
+  color: #565c70 !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="text-white/60"] {
+  color: #666d82 !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="text-white/50"] {
+  color: #73798b !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="text-white/40"] {
+  color: #7e8495 !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="text-white/30"] {
+  color: #9297a6 !important;
+}
+
+/* ---------------------------------------------------------
+   Gray text
+   --------------------------------------------------------- */
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class~="text-gray-300"] {
+  color: #4e5468 !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class~="text-gray-400"] {
+  color: #697084 !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class~="text-gray-500"] {
+  color: #7b8295 !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class~="text-gray-600"] {
+  color: #656b7e !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class~="text-gray-700"] {
+  color: #454b5e !important;
+}
+
+/* ---------------------------------------------------------
+   Inputs / selects
+   --------------------------------------------------------- */
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  input,
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  select,
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  textarea {
+  color: #1a1d2d !important;
+
+  background:
+    rgba(255, 255, 255, 0.78) !important;
+
+  border-color:
+    rgba(74, 61, 116, 0.13) !important;
+}
+
+/* ---------------------------------------------------------
+   Buttons
+   --------------------------------------------------------- */
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  button[class*="bg-white/"] {
+  background:
+    rgba(255, 255, 255, 0.72) !important;
+
+  border-color:
+    rgba(74, 61, 116, 0.10) !important;
+
+  color: #25293b !important;
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  button[class*="bg-white/"]:hover {
+  background:
+    rgba(255, 255, 255, 0.95) !important;
+
+  box-shadow:
+    0 8px 24px rgba(48, 39, 82, 0.08) !important;
+}
+
+/* ---------------------------------------------------------
+   Glass card polish
+   --------------------------------------------------------- */
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="backdrop-blur"] {
+  box-shadow:
+    0 18px 50px rgba(42, 35, 72, 0.055),
+    0 1px 2px rgba(255, 255, 255, 0.7) !important;
+}
+
+/* ---------------------------------------------------------
+   Dashboard headings
+   --------------------------------------------------------- */
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  h1,
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  h2,
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  h3,
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  h4 {
+  color: #171a2b;
+}
+
+/* ---------------------------------------------------------
+   Purple AI accents
+   --------------------------------------------------------- */
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="text-violet-"] {
+  filter: saturate(0.92);
+}
+
+html.light
+  .sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="text-indigo-"] {
+  filter: saturate(0.92);
+}
+
+/* =========================================================
+   HOVER MICRO-INTERACTIONS
+   ========================================================= */
+
+.sentinel-app
+  .relative.z-10.flex
+  > main
+  [class*="backdrop-blur"]:hover {
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .sentinel-app {
+    background:
+      #07070a;
+  }
+
+  html.light .sentinel-app {
+    background:
+      #f5f4fa;
+  }
+}
