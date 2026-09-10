@@ -84,7 +84,7 @@ def evaluate_decision(
     action_total_counts: Dict[str, int] = {}
 
     for mem in historical_memories:
-        act = mem.recovery_action
+        act = str(mem.recovery_action) if mem.recovery_action else None
         if act:
             action_total_counts[act] = action_total_counts.get(act, 0) + 1
             if mem.recovery_success:

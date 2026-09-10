@@ -97,7 +97,7 @@ def _get_memory_context(
         if action_counts:
             learned_action = max(
                 action_counts,
-                key=action_counts.get,
+                key=lambda k: action_counts.get(k, 0),
             )
 
         return {

@@ -1,11 +1,20 @@
 {
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "python.defaultInterpreterPath": "d:/sentinel-Ai/.venv/Scripts/python.exe",
+  "python.pythonPath": "d:/sentinel-Ai/.venv/Scripts/python.exe",
   "python.analysis.extraPaths": [
+    "d:/sentinel-Ai",
+    "d:/sentinel-Ai/backend",
+    "d:/sentinel-Ai/.venv/Lib/site-packages",
     "${workspaceFolder}",
+    "${workspaceFolder}/backend",
     "${workspaceFolder}/.venv/Lib/site-packages"
   ],
   "python.autoComplete.extraPaths": [
+    "d:/sentinel-Ai",
+    "d:/sentinel-Ai/backend",
+    "d:/sentinel-Ai/.venv/Lib/site-packages",
     "${workspaceFolder}",
+    "${workspaceFolder}/backend",
     "${workspaceFolder}/.venv/Lib/site-packages"
   ]
 }

@@ -2,7 +2,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from backend.app.config import settings
 
-engine_kwargs = {"pool_pre_ping": True}
+from typing import Any, Dict
+
+engine_kwargs: Dict[str, Any] = {"pool_pre_ping": True}
 if "sqlite" not in settings.DATABASE_URL:
     engine_kwargs.update({"pool_size": 10, "max_overflow": 20})
 else:

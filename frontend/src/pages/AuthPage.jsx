@@ -369,7 +369,7 @@ export default function AuthPage({ onNavigate, onLoginSuccess, initialNotice, in
                 SIGN IN FORM
                 ========================================================= */}
             {mode === "signin" ? (
-              <form onSubmit={handleLogin} className="space-y-4">
+              <form onSubmit={handleLogin} method="POST" action="#" className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-foreground/80 mb-1.5" htmlFor="login-identifier">
                     Email or Username
@@ -467,7 +467,7 @@ export default function AuthPage({ onNavigate, onLoginSuccess, initialNotice, in
               /* =========================================================
                  SIGN UP FORM
                  ========================================================= */
-              <form onSubmit={handleSignup} className="space-y-3.5">
+              <form onSubmit={handleSignup} method="POST" action="#" className="space-y-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-foreground/80 mb-1" htmlFor="signup-name">
                     Full Name

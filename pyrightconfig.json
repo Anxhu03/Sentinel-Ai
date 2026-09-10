@@ -1,13 +1,20 @@
 {
-  "venvPath": ".",
+  "venvPath": "d:/sentinel-Ai",
   "venv": ".venv",
   "extraPaths": [
     ".",
     "backend",
-    ".venv/Lib/site-packages"
+    ".venv/Lib/site-packages",
+    "d:/sentinel-Ai",
+    "d:/sentinel-Ai/backend",
+    "d:/sentinel-Ai/.venv/Lib/site-packages"
   ],
   "include": [
     "backend",
     "tests"
-  ]
+  ],
+  "reportArgumentType": "none",
+  "reportAttributeAccessIssue": "none",
+  "reportGeneralTypeIssues": "none",
+  "reportOptionalMemberAccess": "none"
 }

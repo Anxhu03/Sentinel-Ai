@@ -87,6 +87,17 @@ class CreateUserRequest(BaseModel):
     workspace: Optional[str] = "Production Mesh"
 
 
+@router.get("/signup", include_in_schema=False)
+@router.get("/signup/", include_in_schema=False)
+def signup_get_not_allowed():
+    """Information endpoint for clients accidentally sending GET instead of POST."""
+    raise HTTPException(
+        status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+        detail="HTTP method GET is not supported for account registration. Please submit details via HTTP POST to /api/auth/signup with Content-Type: application/json.",
+        headers={"Allow": "POST"},
+    )
+
+
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/signup/", response_model=TokenResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def signup(request: SignupRequest, db: Session = Depends(get_db)):
@@ -172,6 +183,17 @@ def signup(request: SignupRequest, db: Session = Depends(get_db)):
         workspace=new_user.workspace,
         role=new_user.role,
         user=user_info,
+    )
+
+
+@router.get("/login", include_in_schema=False)
+@router.get("/login/", include_in_schema=False)
+def login_get_not_allowed():
+    """Information endpoint for clients accidentally sending GET instead of POST."""
+    raise HTTPException(
+        status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+        detail="HTTP method GET is not supported for authentication. Please submit credentials via HTTP POST to /api/auth/login with Content-Type: application/json.",
+        headers={"Allow": "POST"},
     )
 
 

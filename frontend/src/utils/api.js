@@ -203,7 +203,13 @@ export async function safeParseResponse(response) {
             "Authentication service endpoint not found (HTTP 404). Please verify that the FastAPI backend is running on port 8000."
         }
       } else if (response.status === 405) {
-        errorMessage = "Method Not Allowed (HTTP 405). Please verify backend route configuration."
+        if (!isLocalEnvironment()) {
+          errorMessage =
+            "Method Not Allowed (HTTP 405). The request reached a static host or an endpoint not accepting POST. Please verify your backend API URL in VITE_API_BASE."
+        } else {
+          errorMessage =
+            "Method Not Allowed (HTTP 405). Authentication endpoint requires HTTP POST with valid JSON credentials."
+        }
       } else if (response.status === 422) {
         errorMessage = "Invalid request parameters. Please check your inputs."
       } else if (response.status === 502 || response.status === 503 || response.status === 504) {
@@ -313,9 +319,12 @@ export async function postAuthWithFallback(endpoint, payload) {
 
   // If a non-JSON/HTML response was received from all candidates
   if (lastParsedResult) {
-    let msg = lastParsedResult.errorMessage
-    if (!msg || lastParsedResult.status === 404) {
-      if (!isLocal) {
+    if (!msg || lastParsedResult.status === 404 || lastParsedResult.status === 405) {
+      if (lastParsedResult.status === 405) {
+        msg = !isLocal
+          ? "Method Not Allowed (HTTP 405). The request reached a static host or an endpoint not accepting POST. Please configure VITE_API_BASE in Vercel to point to your FastAPI backend."
+          : "Method Not Allowed (HTTP 405). Authentication endpoint requires HTTP POST with valid JSON credentials."
+      } else if (!isLocal) {
         msg =
           "Authentication service endpoint not found (HTTP 404). Please verify backend API URL and configure VITE_API_BASE on Vercel."
       } else {
