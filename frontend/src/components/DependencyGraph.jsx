@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
 import { ArrowRight, CheckCircle2, Network, RefreshCw } from "lucide-react"
+import { getApiBaseUrl, safeParseResponse } from "../utils/api"
 
-const API_URL = "http://localhost:8000"
+const API_BASE = getApiBaseUrl()
 
 function formatServiceName(name) {
   if (!name) return "Unknown"
@@ -15,13 +16,21 @@ function DependencyGraph() {
   const [graph, setGraph] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchDependencies = () => {
+  const fetchDependencies = async () => {
     setLoading(true)
-    fetch(`${API_URL}/api/dependencies/`)
-      .then((res) => res.json())
-      .then((data) => setGraph(data))
-      .catch((err) => console.error("Dependency graph error:", err))
-      .finally(() => setLoading(false))
+    try {
+      const res = await fetch(`${API_BASE}/api/dependencies/`)
+      const parsed = await safeParseResponse(res)
+      if (parsed.ok && parsed.isJson) {
+        setGraph(parsed.data)
+      } else {
+        console.warn("Unable to load dependencies:", parsed.errorMessage)
+      }
+    } catch (err) {
+      console.error("Dependency graph error:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {

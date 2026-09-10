@@ -19,6 +19,7 @@ def get_db():
         db.close()
 
 
+@router.get("")
 @router.get("/")
 def get_services(db: Session = Depends(get_db)):
     services = db.query(Service).all()

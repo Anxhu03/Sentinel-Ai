@@ -7,6 +7,7 @@ router = APIRouter(
     tags=["Dependencies"],
 )
 
+@router.get("")
 @router.get("/")
 def get_dependency_graph():
     dependencies = []

@@ -6,39 +6,109 @@
  */
 
 /**
+ * Determines whether the current execution context is a local development environment.
+ * Evaluates window.location.hostname against standard loopback identifiers.
+ *
+ * @returns {boolean}
+ */
+export function isLocalEnvironment() {
+  if (typeof window === "undefined" || !window.location) {
+    return true
+  }
+  const { hostname } = window.location
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "0.0.0.0" ||
+    hostname === "::1" ||
+    hostname === "[::1]" ||
+    hostname.endsWith(".local")
+  )
+}
+
+/**
+ * Checks whether a given URL points to a loopback/development address.
+ *
+ * @param {string} url
+ * @returns {boolean}
+ */
+export function isLoopbackUrl(url) {
+  if (!url || typeof url !== "string") return false
+  const lower = url.trim().toLowerCase()
+  return (
+    lower.includes("localhost") ||
+    lower.includes("127.0.0.1") ||
+    lower.includes("0.0.0.0") ||
+    lower.includes("[::1]") ||
+    lower.includes("::1")
+  )
+}
+
+/**
  * Resolves the backend API base URL across environments.
- * Priority order:
- * 1. import.meta.env.VITE_API_BASE
- * 2. import.meta.env.VITE_API_URL
- * 3. window.__SENTINEL_API_BASE__
- * 4. Localhost fallback (http://127.0.0.1:8000) for local development
- * 5. Relative empty string if deployed on production behind a reverse proxy
+ * 
+ * In Production (e.g. deployed on Vercel or any remote domain):
+ * - Reads VITE_API_BASE or VITE_API_URL or window.__SENTINEL_API_BASE__
+ * - Strictly DISCARDS any localhost / 127.0.0.1 value to prevent production connection errors
+ * - Defaults to empty string "" (relative path) if no remote URL is configured
+ *
+ * In Local Development:
+ * - Uses configured VITE_API_BASE / VITE_API_URL, or falls back to http://127.0.0.1:8000
+ *
+ * @returns {string}
  */
 export function getApiBaseUrl() {
+  const isLocal = isLocalEnvironment()
+
   const env =
     typeof import.meta !== "undefined" && import.meta.env
       ? import.meta.env
       : {}
-  const envBase = env.VITE_API_BASE || env.VITE_API_URL
-  if (envBase && typeof envBase === "string" && envBase.trim()) {
-    return envBase.trim().replace(/\/+$/, "")
-  }
 
-  if (typeof window !== "undefined" && window.__SENTINEL_API_BASE__) {
-    return String(window.__SENTINEL_API_BASE__).trim().replace(/\/+$/, "")
-  }
+  // 1. Check Vite build-time environment variables
+  const envBase = (env.VITE_API_BASE || env.VITE_API_URL || "").trim()
 
+  // 2. Check runtime window override or localStorage override (useful for testing/dynamic config)
+  let runtimeOverride = ""
   if (typeof window !== "undefined") {
-    const { hostname } = window.location
-    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0") {
-      return "http://127.0.0.1:8000"
+    if (window.__SENTINEL_API_BASE__) {
+      runtimeOverride = String(window.__SENTINEL_API_BASE__).trim()
+    } else {
+      try {
+        const stored = window.localStorage?.getItem("sentinel_api_base")
+        if (stored) runtimeOverride = stored.trim()
+      } catch {
+        // Ignore localStorage errors
+      }
     }
-    // In production hosted on remote domain without explicit VITE_API_BASE:
-    // Default to relative (for reverse proxies)
-    return ""
   }
 
-  return "http://127.0.0.1:8000"
+  const candidateBase = runtimeOverride || envBase
+
+  if (candidateBase) {
+    // If running in production on a remote domain (like Vercel):
+    if (!isLocal) {
+      if (isLoopbackUrl(candidateBase)) {
+        console.warn(
+          `[Sentinel AI] Discarding local development URL "${candidateBase}" on production host (${window.location.hostname}). Using production API resolution.`
+        )
+      } else {
+        // Valid remote production URL
+        return candidateBase.replace(/\/+$/, "")
+      }
+    } else {
+      // Local development can use candidateBase directly
+      return candidateBase.replace(/\/+$/, "")
+    }
+  }
+
+  // Fallbacks:
+  if (isLocal) {
+    return "http://127.0.0.1:8000"
+  }
+
+  // Production with no explicit remote URL defaults to same-origin relative (for reverse proxies / CDN rewrites)
+  return ""
 }
 
 /**
@@ -125,7 +195,13 @@ export async function safeParseResponse(response) {
       } else if (response.status === 403) {
         errorMessage = "Access forbidden. User account may be inactive or disabled."
       } else if (response.status === 404) {
-        errorMessage = "Authentication service endpoint not found (HTTP 404). Please verify backend API URL."
+        if (!isLocalEnvironment()) {
+          errorMessage =
+            "Authentication service endpoint not found (HTTP 404). Please verify backend deployment and VITE_API_BASE configuration."
+        } else {
+          errorMessage =
+            "Authentication service endpoint not found (HTTP 404). Please verify that the FastAPI backend is running on port 8000."
+        }
       } else if (response.status === 405) {
         errorMessage = "Method Not Allowed (HTTP 405). Please verify backend route configuration."
       } else if (response.status === 422) {
@@ -133,7 +209,7 @@ export async function safeParseResponse(response) {
       } else if (response.status === 502 || response.status === 503 || response.status === 504) {
         errorMessage = `Backend service unavailable (HTTP ${response.status}). Please check that the server is online.`
       } else if (isHtml) {
-        errorMessage = `Server returned an HTML error page (HTTP ${response.status}) instead of JSON. The backend service may be offline or misconfigured.`
+        errorMessage = `Server returned an HTML response (HTTP ${response.status}) instead of JSON. The backend service may be offline or misconfigured.`
       } else if (rawText && rawText.length < 120 && !rawText.includes("<")) {
         errorMessage = rawText.trim()
       } else {
@@ -158,7 +234,8 @@ export async function safeParseResponse(response) {
 }
 
 /**
- * Tries candidates to reach backend authentication API.
+ * Dispatches an authentication request with fallback candidates.
+ * In production (e.g. Vercel), strictly avoids localhost/127.0.0.1.
  * Skips non-JSON / HTML responses (e.g. from static dev server or SPA 404 catch-alls).
  *
  * @param {string} endpoint - The relative endpoint path (e.g. "/api/auth/login")
@@ -175,32 +252,34 @@ export async function safeParseResponse(response) {
  * }>}
  */
 export async function postAuthWithFallback(endpoint, payload) {
+  const isLocal = isLocalEnvironment()
   const base = getApiBaseUrl()
+  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`
 
   // Build candidate URLs in priority order
   const candidateUrls = []
 
-  // 1. Explicit base URL if configured
+  // 1. Explicit base URL if configured (remote production URL or local dev base)
   if (base) {
-    candidateUrls.push(`${base}${endpoint}`)
-  }
-
-  // 2. Localhost candidates if on local browser
-  if (typeof window !== "undefined") {
-    const { hostname } = window.location
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
-      if (!candidateUrls.includes(`http://127.0.0.1:8000${endpoint}`)) {
-        candidateUrls.push(`http://127.0.0.1:8000${endpoint}`)
-      }
-      if (!candidateUrls.includes(`http://localhost:8000${endpoint}`)) {
-        candidateUrls.push(`http://localhost:8000${endpoint}`)
-      }
+    const fullUrl = `${base}${cleanEndpoint}`
+    if (!isLocal && isLoopbackUrl(fullUrl)) {
+      // NEVER allow loopback URLs in production candidate list
+    } else {
+      candidateUrls.push(fullUrl)
     }
   }
 
-  // 3. Relative endpoint (e.g. for reverse proxies / Vite proxy)
-  if (!candidateUrls.includes(endpoint)) {
-    candidateUrls.push(endpoint)
+  // 2. Localhost candidates ONLY if running in local browser environment
+  if (isLocal) {
+    const local127 = `http://127.0.0.1:8000${cleanEndpoint}`
+    const localHost = `http://localhost:8000${cleanEndpoint}`
+    if (!candidateUrls.includes(local127)) candidateUrls.push(local127)
+    if (!candidateUrls.includes(localHost)) candidateUrls.push(localHost)
+  }
+
+  // 3. Relative endpoint (for reverse proxies, Vercel rewrites, or Vite dev proxy)
+  if (!candidateUrls.includes(cleanEndpoint)) {
+    candidateUrls.push(cleanEndpoint)
   }
 
   let lastParsedResult = null
@@ -234,16 +313,28 @@ export async function postAuthWithFallback(endpoint, payload) {
 
   // If a non-JSON/HTML response was received from all candidates
   if (lastParsedResult) {
+    let msg = lastParsedResult.errorMessage
+    if (!msg || lastParsedResult.status === 404) {
+      if (!isLocal) {
+        msg =
+          "Authentication service endpoint not found (HTTP 404). Please verify backend API URL and configure VITE_API_BASE on Vercel."
+      } else {
+        msg =
+          "Authentication service endpoint not found (HTTP 404). Please verify that the FastAPI backend is running on port 8000."
+      }
+    }
     return {
       ...lastParsedResult,
       ok: false,
-      errorMessage:
-        lastParsedResult.errorMessage ||
-        "Authentication endpoint returned invalid non-JSON response. Please verify backend service URL.",
+      errorMessage: msg,
     }
   }
 
   // If all candidates failed with network connection errors
+  const networkErrMsg = !isLocal
+    ? "Unable to connect to Sentinel AI production backend. Please verify your internet connection and backend deployment."
+    : "Unable to connect to Sentinel AI backend service. Please verify that the server is running on http://127.0.0.1:8000."
+
   return {
     ok: false,
     status: 0,
@@ -252,7 +343,7 @@ export async function postAuthWithFallback(endpoint, payload) {
     isHtml: false,
     data: {},
     rawText: "",
-    errorMessage:
-      "Unable to connect to Sentinel AI backend service. Please verify that the server is online.",
+    errorMessage: networkErrMsg,
   }
 }
+

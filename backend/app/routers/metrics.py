@@ -50,6 +50,7 @@ def get_active_incident():
         db.close()
 
 
+@router.get("")
 @router.get("/")
 def get_metrics():
 

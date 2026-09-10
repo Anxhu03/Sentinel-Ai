@@ -88,6 +88,7 @@ class CreateUserRequest(BaseModel):
 
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/signup/", response_model=TokenResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def signup(request: SignupRequest, db: Session = Depends(get_db)):
     """Allow a new user to create a real SaaS account with Name, Email, Password, Confirm Password."""
     name = request.name.strip()
@@ -175,6 +176,7 @@ def signup(request: SignupRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
+@router.post("/login/", response_model=TokenResponse, include_in_schema=False)
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     """Authenticate user with email or username and password, returning JWT token."""
     ident = (request.email or request.username or request.identifier or "").strip()
@@ -233,6 +235,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/logout")
+@router.post("/logout/", include_in_schema=False)
 def logout(credentials: Optional[HTTPAuthorizationCredentials] = Security(security)):
     """Sign out the current session and invalidate JWT access token."""
     if credentials and credentials.credentials:
@@ -241,6 +244,7 @@ def logout(credentials: Optional[HTTPAuthorizationCredentials] = Security(securi
 
 
 @router.get("/me", response_model=UserProfileResponse)
+@router.get("/me/", response_model=UserProfileResponse, include_in_schema=False)
 def get_profile(current_user: User = Depends(get_current_user)):
     """Get authenticated user profile."""
     return UserProfileResponse(
