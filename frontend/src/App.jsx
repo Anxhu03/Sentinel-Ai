@@ -17,6 +17,8 @@ import {
   GitBranch,
   History,
   LayoutDashboard,
+  Loader2,
+  LogOut,
   MemoryStick,
   Network,
   Play,
@@ -31,6 +33,7 @@ import {
   Terminal,
   TrendingDown,
   TrendingUp,
+  User,
   Wrench,
   X,
   Zap,
@@ -45,51 +48,123 @@ import MetricChart from "./components/MetricChart"
 import WhatIfSimulationPanel from "./components/WhatIfSimulationPanel"
 import LandingPage from "./pages/LandingPage"
 import AuthPage from "./pages/AuthPage"
+import { ThemeToggle } from "./context/ThemeContext"
 
 const API_BASE = "http://127.0.0.1:8000"
 
-const NAV_ITEMS = [
-  "Landing",
-  "Login",
-  "Signup",
-  "Overview",
-  "Monitoring",
-  "AI Investigation",
-  "Services",
-  "Dependencies",
-  "Remediation",
-  "Incident Memory",
-  "System Health",
-  "Settings",
-]
+const ROUTE_ALIASES = {
+  "/": "Landing",
+  "landing": "Landing",
+  "/landing": "Landing",
+  "/login": "Login",
+  "login": "Login",
+  "/signup": "Signup",
+  "signup": "Signup",
+  "/app": "Overview",
+  "app": "Overview",
+  "overview": "Overview",
+  "/app/overview": "Overview",
+  "/app/monitoring": "Monitoring",
+  "monitoring": "Monitoring",
+  "/app/ai-investigation": "AI Investigation",
+  "ai investigation": "AI Investigation",
+  "ai-investigation": "AI Investigation",
+  "/app/services": "Services",
+  "services": "Services",
+  "/app/dependencies": "Dependencies",
+  "dependencies": "Dependencies",
+  "/app/remediation": "Remediation",
+  "remediation": "Remediation",
+  "/app/memory": "Incident Memory",
+  "/app/incident-memory": "Incident Memory",
+  "incident memory": "Incident Memory",
+  "incident-memory": "Incident Memory",
+  "/app/system-health": "System Health",
+  "system health": "System Health",
+  "system-health": "System Health",
+  "/app/settings": "Settings",
+  "settings": "Settings",
+}
 
-function getPageFromHash(hasAuth) {
-  const raw = window.location.hash.replace(/^#/, "")
-  if (!raw) {
-    return hasAuth ? "Overview" : "Login"
-  }
-  try {
-    const decoded = decodeURIComponent(raw)
-    const match = NAV_ITEMS.find((item) => item.toLowerCase() === decoded.toLowerCase())
-    const resolved = match || (hasAuth ? "Overview" : "Login")
+function resolveCurrentRoute(hasAuth) {
+  const hashRaw = window.location.hash.replace(/^#\/?/, "").toLowerCase()
+  const pathRaw = window.location.pathname.toLowerCase().replace(/\/$/, "") || "/"
 
-    // If unauthenticated, access to console pages is strictly guarded and redirected to Login
-    if (!hasAuth && resolved !== "Landing" && resolved !== "Login" && resolved !== "Signup") {
-      return "Login"
+  let candidate = "Landing"
+
+  if (hashRaw) {
+    if (hashRaw === "login" || hashRaw.includes("login")) candidate = "Login"
+    else if (hashRaw === "signup" || hashRaw.includes("signup")) candidate = "Signup"
+    else if (hashRaw === "landing" || hashRaw === "") candidate = "Landing"
+    else if (hashRaw.startsWith("app")) {
+      const sub = hashRaw.replace(/^app\/?/, "")
+      candidate = ROUTE_ALIASES[sub] || ROUTE_ALIASES[`/app/${sub}`] || "Overview"
+    } else {
+      candidate = ROUTE_ALIASES[hashRaw] || "Overview"
     }
-    return resolved
-  } catch {
-    return hasAuth ? "Overview" : "Login"
+  } else {
+    if (pathRaw === "" || pathRaw === "/") candidate = "Landing"
+    else if (pathRaw === "/login") candidate = "Login"
+    else if (pathRaw === "/signup") candidate = "Signup"
+    else if (pathRaw.startsWith("/app")) candidate = ROUTE_ALIASES[pathRaw] || "Overview"
+    else candidate = ROUTE_ALIASES[pathRaw] || (hasAuth ? "Overview" : "Landing")
+  }
+
+  const isPublic = candidate === "Landing" || candidate === "Login" || candidate === "Signup"
+
+  // Protected route enforcement: require authentication for /app
+  if (!hasAuth && !isPublic) {
+    return {
+      page: "Login",
+      notice: "Authentication required. You must sign in to access the Sentinel AI console.",
+      shouldSyncUrl: true,
+      targetUrl: "/login",
+    }
+  }
+
+  // Redirect authenticated user away from login/signup to dashboard
+  if (hasAuth && (candidate === "Login" || candidate === "Signup")) {
+    return {
+      page: "Overview",
+      notice: null,
+      shouldSyncUrl: true,
+      targetUrl: "/app",
+    }
+  }
+
+  return {
+    page: candidate,
+    notice: null,
+    shouldSyncUrl: false,
+    targetUrl: null,
   }
 }
 
-function navigateTo(page) {
-  const nextHash = encodeURIComponent(page)
-  if (window.location.hash.replace(/^#/, "") === nextHash) {
-    window.dispatchEvent(new HashChangeEvent("hashchange"))
-    return
+function navigateTo(target) {
+  const isPath = target.startsWith("/")
+  let path = target
+  let pageName = target
+
+  if (isPath) {
+    pageName = ROUTE_ALIASES[target.toLowerCase()] || (target.startsWith("/app") ? "Overview" : "Landing")
+    path = target
+  } else {
+    pageName = target
+    if (target === "Landing") path = "/"
+    else if (target === "Login") path = "/login"
+    else if (target === "Signup") path = "/signup"
+    else if (target === "Overview") path = "/app"
+    else {
+      const slug = target.toLowerCase().replace(/\s+/g, "-")
+      path = `/app/${slug}`
+    }
   }
-  window.location.hash = nextHash
+
+  try {
+    window.history.pushState(null, "", path)
+  } catch {}
+  window.location.hash = path === "/" ? "" : encodeURIComponent(path)
+  window.dispatchEvent(new Event("popstate"))
 }
 
 function formatValue(value) {
@@ -108,19 +183,19 @@ function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const stored = localStorage.getItem("sentinel_user")
-      return stored ? JSON.parse(stored) : null
+      const token = localStorage.getItem("sentinel_token")
+      return (stored && token) ? JSON.parse(stored) : null
     } catch {
       return null
     }
   })
 
+  const [authNotice, setAuthNotice] = useState(null)
+
   const [page, setPage] = useState(() => {
-    try {
-      const stored = localStorage.getItem("sentinel_user")
-      return getPageFromHash(Boolean(stored))
-    } catch {
-      return "Login"
-    }
+    const hasAuth = Boolean(localStorage.getItem("sentinel_token"))
+    const resolved = resolveCurrentRoute(hasAuth)
+    return resolved.page
   })
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
@@ -147,35 +222,90 @@ function App() {
 
   const handleLoginSuccess = (userData) => {
     setCurrentUser(userData)
-    navigateTo("Overview")
+    setAuthNotice(null)
+    navigateTo("/app")
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem("sentinel_token")
-    localStorage.removeItem("sentinel_user")
-    setCurrentUser(null)
-    navigateTo("Login")
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("sentinel_token")
+      if (token) {
+        await fetch(`${API_BASE}/api/auth/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      }
+    } catch {
+      // ignore
+    } finally {
+      localStorage.removeItem("sentinel_token")
+      localStorage.removeItem("sentinel_user")
+      setCurrentUser(null)
+      setAuthNotice(null)
+      navigateTo("/")
+    }
   }
 
   useEffect(() => {
-    const handleNavigation = () => {
+    const handleRouteSync = () => {
       const hasAuth = Boolean(currentUser)
-      const targetPage = getPageFromHash(hasAuth)
-      setPage(targetPage)
+      const resolved = resolveCurrentRoute(hasAuth)
+      setPage(resolved.page)
+      if (resolved.notice) {
+        setAuthNotice(resolved.notice)
+      } else if (resolved.page !== "Login" && resolved.page !== "Signup") {
+        setAuthNotice(null)
+      }
+
+      if (resolved.shouldSyncUrl && resolved.targetUrl) {
+        try {
+          window.history.replaceState(null, "", resolved.targetUrl)
+        } catch {}
+      }
     }
 
-    window.addEventListener("hashchange", handleNavigation)
+    window.addEventListener("hashchange", handleRouteSync)
+    window.addEventListener("popstate", handleRouteSync)
 
-    const rawHash = window.location.hash.replace(/^#/, "")
-    if (!rawHash) {
-      const defaultPage = currentUser ? "Overview" : "Login"
-      window.location.hash = encodeURIComponent(defaultPage)
-    } else {
-      handleNavigation()
+    handleRouteSync()
+
+    return () => {
+      window.removeEventListener("hashchange", handleRouteSync)
+      window.removeEventListener("popstate", handleRouteSync)
     }
-
-    return () => window.removeEventListener("hashchange", handleNavigation)
   }, [currentUser])
+
+  // Active session restoration from backend
+  useEffect(() => {
+    const validateSession = async () => {
+      const token = localStorage.getItem("sentinel_token")
+      if (!token) {
+        setCurrentUser(null)
+        return
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const freshUser = await res.json()
+          setCurrentUser(freshUser)
+          localStorage.setItem("sentinel_user", JSON.stringify(freshUser))
+        } else {
+          console.warn("Session expired. Clearing credentials.")
+          localStorage.removeItem("sentinel_token")
+          localStorage.removeItem("sentinel_user")
+          setCurrentUser(null)
+          navigateTo("/login")
+        }
+      } catch (err) {
+        console.warn("Session check note:", err)
+      }
+    }
+
+    validateSession()
+  }, [])
 
   const fetchServices = async () => {
     try {
@@ -361,17 +491,14 @@ function App() {
     )
   }
 
-  // Strictly enforce sign-in for using the Sentinel AI website & console
-  if (!currentUser) {
+  // Strictly enforce sign-in for using the Sentinel AI console
+  if (!currentUser || page === "Login" || page === "Signup") {
     return (
       <AuthPage
         onNavigate={navigateTo}
         onLoginSuccess={handleLoginSuccess}
-        initialNotice={
-          page !== "Login" && page !== "Signup"
-            ? "Authentication required. You must sign in with SRE operator credentials to access the Sentinel AI platform."
-            : null
-        }
+        initialMode={page === "Signup" ? "signup" : "signin"}
+        initialNotice={authNotice}
       />
     )
   }
@@ -380,7 +507,7 @@ function App() {
   const activeConsolePage = (page === "Login" || page === "Signup") ? "Overview" : page
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground selection:bg-accent/30 selection:text-white">
+    <div className="flex min-h-screen bg-background text-foreground selection:bg-accent/30 selection:text-white transition-colors duration-300">
       {/* COLLAPSIBLE SIDEBAR */}
       <Sidebar
         collapsed={sidebarCollapsed}
@@ -493,6 +620,8 @@ function App() {
             <SettingsPage
               backendOnline={backendOnline}
               apiBase={API_BASE}
+              user={currentUser}
+              onLogout={handleLogout}
             />
           )}
         </main>
@@ -1419,23 +1548,157 @@ function SystemHealthPage({ services, metrics, backendOnline, healthPercentage }
    SETTINGS PAGE
    ========================================================= */
 
-function SettingsPage({ backendOnline, apiBase }) {
+function SettingsPage({ backendOnline, apiBase, user, onLogout }) {
+  const [confirmLogout, setConfirmLogout] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleTriggerLogout = async () => {
+    setIsLoggingOut(true)
+    if (onLogout) {
+      await onLogout()
+    }
+  }
+
+  const initials = useMemo(() => {
+    const name = user?.full_name || user?.username || "Admin"
+    const parts = name.trim().split(" ")
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase()
+    }
+    return name.slice(0, 2).toUpperCase()
+  }, [user])
+
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-4xl animate-in fade-in duration-300">
       <div>
-        <h2 className="text-xl font-semibold text-foreground tracking-tight">Platform Configuration</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Connection endpoints and interface parameters</p>
+        <h2 className="text-2xl font-bold text-foreground tracking-tight">System Settings & Security</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Manage your operator identity, active session credentials, platform parameters, and interface preferences.
+        </p>
       </div>
 
-      <div className="bg-card border border-border rounded-xl divide-y divide-border">
+      {/* SECTION 1: OPERATOR IDENTITY & ACTIVE SESSION CARD */}
+      <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-border">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-2xl bg-accent/15 border-2 border-accent/40 text-accent flex items-center justify-center font-bold text-xl shadow-inner select-none">
+                {initials}
+              </div>
+              <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-success border-2 border-card" title="Active Session" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h3 className="text-lg font-bold text-foreground tracking-tight">
+                  {user?.full_name || user?.username || "Authenticated Operator"}
+                </h3>
+                <span className="text-[10px] font-mono font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent">
+                  {user?.role || "SR. RELIABILITY ENGINEER"}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground font-mono mt-0.5">
+                {user?.email || "operator@sentinel-ai.internal"}
+              </p>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground mt-2">
+                <span className="flex items-center gap-1.5 text-success font-medium">
+                  <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                  Authenticated Session Active
+                </span>
+                <span>•</span>
+                <span>Workspace: <strong className="text-foreground">{user?.organization || "Global Autonomous SRE Fleet"}</strong></span>
+              </div>
+            </div>
+          </div>
+
+          {/* LOGOUT ACTION ZONE */}
+          <div className="flex flex-col items-start sm:items-end gap-2">
+            {!confirmLogout ? (
+              <button
+                id="settings-logout-btn"
+                onClick={() => setConfirmLogout(true)}
+                className="px-4 py-2 rounded-xl border border-destructive/30 bg-destructive/10 hover:bg-destructive/20 text-destructive text-sm font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer shadow-sm group hover:scale-[1.02]"
+              >
+                <LogOut className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                <span>Sign Out of Console</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 p-1.5 bg-destructive/10 border border-destructive/30 rounded-xl animate-in fade-in zoom-in-95 duration-150">
+                <span className="text-xs text-destructive font-medium px-2">End session?</span>
+                <button
+                  id="settings-logout-cancel-btn"
+                  onClick={() => setConfirmLogout(false)}
+                  disabled={isLoggingOut}
+                  className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-secondary text-foreground text-xs font-medium transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="settings-logout-confirm-btn"
+                  onClick={handleTriggerLogout}
+                  disabled={isLoggingOut}
+                  className="px-3.5 py-1.5 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                >
+                  {isLoggingOut ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Signing Out...</span>
+                    </>
+                  ) : (
+                    <>
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Confirm & Go to Public Site</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground">
+              Revokes JWT session and returns you to public homepage.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-2 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-accent" />
+            <span>Secure SHA-256 JWT Token Session • Client storage encrypted</span>
+          </div>
+          <button
+            id="settings-public-showcase-link"
+            onClick={() => navigateTo("/")}
+            className="text-xs text-accent hover:underline flex items-center gap-1 cursor-pointer font-medium"
+          >
+            <span>View Public Showcase without signing out</span>
+            <ExternalLink className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+
+      {/* SECTION 2: PLATFORM CONFIGURATION & RUNTIME */}
+      <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
+        <div className="p-4 bg-secondary/30">
+          <h3 className="text-sm font-semibold text-foreground tracking-tight">Platform Control Plane</h3>
+          <p className="text-xs text-muted-foreground">Runtime infrastructure and microservices endpoints</p>
+        </div>
+
         <div className="p-4 flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold text-foreground">Backend Endpoint</p>
+            <p className="text-sm font-semibold text-foreground">Backend Control Plane</p>
             <p className="text-xs text-muted-foreground">FastAPI REST control plane address</p>
           </div>
-          <span className="font-mono text-xs bg-secondary px-2.5 py-1 rounded border border-border text-foreground">
-            {apiBase}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md border ${
+              backendOnline
+                ? "bg-success/10 text-success border-success/20"
+                : "bg-destructive/10 text-destructive border-destructive/20"
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${backendOnline ? "bg-success" : "bg-destructive"}`} />
+              {backendOnline ? "ONLINE" : "DISCONNECTED"}
+            </span>
+            <span className="font-mono text-xs bg-secondary px-2.5 py-1 rounded border border-border text-foreground">
+              {apiBase}
+            </span>
+          </div>
         </div>
 
         <div className="p-4 flex items-center justify-between">
@@ -1444,18 +1707,18 @@ function SettingsPage({ backendOnline, apiBase }) {
             <p className="text-xs text-muted-foreground">Real-time metrics query frequency</p>
           </div>
           <span className="text-xs bg-secondary px-2.5 py-1 rounded border border-border text-foreground font-semibold">
-            6 seconds
+            6 seconds (Adaptive Streaming)
           </span>
         </div>
 
         <div className="p-4 flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold text-foreground">Interface Theme</p>
-            <p className="text-xs text-muted-foreground">High-contrast modern enterprise operations mode</p>
+            <p className="text-sm font-semibold text-foreground">Interface Theme Mode</p>
+            <p className="text-xs text-muted-foreground">Toggle between Obsidian Dark and Enterprise Light mode (persists across sessions)</p>
           </div>
-          <span className="text-xs bg-accent/15 text-accent font-semibold px-2.5 py-1 rounded border border-accent/20">
-            Dark Operations
-          </span>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+          </div>
         </div>
       </div>
     </div>

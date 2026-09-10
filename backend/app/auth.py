@@ -17,6 +17,20 @@ from backend.app.models import User
 # Optional bearer scheme that doesn't automatically raise 403 on missing credentials
 security = HTTPBearer(auto_error=False)
 
+# In-memory revocation registry (revokes tokens on explicit logout)
+REVOKED_TOKENS: set[str] = set()
+
+
+def revoke_token(token: str) -> None:
+    """Add token to revocation registry."""
+    if token:
+        REVOKED_TOKENS.add(token.strip())
+
+
+def is_token_revoked(token: str) -> bool:
+    """Check if token was explicitly revoked on logout."""
+    return bool(token and token.strip() in REVOKED_TOKENS)
+
 
 def hash_password(password: str) -> str:
     """Hash password using PBKDF2-HMAC-SHA256 with a unique random salt."""
@@ -80,6 +94,13 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    if is_token_revoked(credentials.credentials):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session has been terminated. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     payload = decode_access_token(credentials.credentials)
     if not payload or "sub" not in payload:
         raise HTTPException(
@@ -102,7 +123,7 @@ def get_optional_user(
     db: Session = Depends(get_db),
 ) -> Optional[User]:
     """Return User if valid token is provided, otherwise return None (allows public demo mode)."""
-    if not credentials:
+    if not credentials or is_token_revoked(credentials.credentials):
         return None
 
     payload = decode_access_token(credentials.credentials)

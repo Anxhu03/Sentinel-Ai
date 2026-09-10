@@ -34,6 +34,22 @@ async def lifespan(app: FastAPI):
     # Ensure tables exist
     Base.metadata.create_all(bind=engine)
 
+    # Safe dynamic column migration for existing user tables
+    try:
+        with engine.connect() as conn:
+            for col, col_type in [
+                ("full_name", "VARCHAR(100)"),
+                ("organization", "VARCHAR(100) DEFAULT 'Sentinel Corp'"),
+                ("workspace", "VARCHAR(100) DEFAULT 'Production Mesh'"),
+            ]:
+                try:
+                    conn.execute(text(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {col_type};"))
+                    conn.commit()
+                except Exception:
+                    pass
+    except Exception as exc:
+        logger.debug(f"Column migration note: {exc}")
+
     # Seed default services and users if missing
     db = SessionLocal()
     try:

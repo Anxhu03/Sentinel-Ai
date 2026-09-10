@@ -15,3 +15,6 @@ frontend/dist/
 .env
 *.local
 
+# Scratch and temporary testing files
+scratch/
+

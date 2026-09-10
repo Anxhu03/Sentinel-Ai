@@ -104,6 +104,11 @@ class User(Base):
     email = Column(String(100), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
 
+    # Extended multi-tenant profile
+    full_name = Column(String(100), nullable=True)
+    organization = Column(String(100), default="Sentinel Corp", nullable=False)
+    workspace = Column(String(100), default="Production Mesh", nullable=False)
+
     # RBAC roles: 'admin', 'operator', 'viewer'
     role = Column(String(20), default="operator", nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)

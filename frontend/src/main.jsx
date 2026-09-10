@@ -2,6 +2,7 @@ import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import { ThemeProvider } from './context/ThemeContext'
 
 class RootErrorBoundary extends React.Component {
   constructor(props) {
@@ -110,7 +111,9 @@ class RootErrorBoundary extends React.Component {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <RootErrorBoundary>
-      <App />
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
     </RootErrorBoundary>
   </StrictMode>,
 )

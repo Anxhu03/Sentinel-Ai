@@ -89,7 +89,9 @@
   --chart-5: #ec4899;
 }
 
-.light {
+html.light,
+.light,
+[data-theme="light"] {
   color-scheme: light;
 
   --background: #f8fafc;

@@ -25,6 +25,7 @@ import {
   Sparkles,
   LogOut,
 } from "lucide-react"
+import { ThemeToggle } from "../context/ThemeContext"
 
 const API_BASE = "http://127.0.0.1:8000"
 
@@ -354,6 +355,9 @@ export default function Topbar({ onTriggerIncident, user, onLogout }) {
             )}
           </div>
 
+          {/* THEME TOGGLE */}
+          <ThemeToggle />
+
           {/* PUBLIC SITE LINK */}
           <button
             type="button"
@@ -361,7 +365,7 @@ export default function Topbar({ onTriggerIncident, user, onLogout }) {
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg border border-border transition-colors cursor-pointer"
             title="View SaaS Landing Page"
           >
-            <Sparkles className="w-3.5 h-3.5 text-accent" />
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
             <span>Public Site</span>
           </button>
 
@@ -369,35 +373,75 @@ export default function Topbar({ onTriggerIncident, user, onLogout }) {
           <div ref={profileRef} className="relative">
             <button
               type="button"
+              id="topbar-user-avatar-btn"
               onClick={() => {
                 setProfileOpen((prev) => !prev)
                 setNotificationOpen(false)
               }}
-              className="w-9 h-9 rounded-lg overflow-hidden bg-secondary border border-border ring-2 ring-transparent hover:ring-accent/40 transition-all duration-200 flex items-center justify-center cursor-pointer"
+              className="w-9 h-9 rounded-lg overflow-hidden bg-secondary border border-border ring-2 ring-transparent hover:ring-primary/40 transition-all duration-200 flex items-center justify-center cursor-pointer"
             >
-              <div className="w-full h-full bg-gradient-to-br from-accent/80 to-chart-1 flex items-center justify-center text-xs font-semibold text-white uppercase">
-                {user?.username ? user.username.substring(0, 2).toUpperCase() : "SA"}
+              <div className="w-full h-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-semibold text-white uppercase">
+                {user?.full_name
+                  ? user.full_name
+                      .split(" ")
+                      .map((p) => p[0])
+                      .join("")
+                      .substring(0, 2)
+                      .toUpperCase()
+                  : user?.username
+                  ? user.username.substring(0, 2).toUpperCase()
+                  : "SA"}
               </div>
             </button>
 
             {/* PROFILE POPOVER */}
             {profileOpen && (
-              <div className="absolute right-0 top-11 w-64 bg-card border border-border rounded-xl shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <div className="absolute right-0 top-11 w-72 bg-card border border-border rounded-xl shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
                 <div className="flex items-center gap-3 pb-3 border-b border-border">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-accent to-chart-1 flex items-center justify-center text-sm font-bold text-white shadow-sm uppercase">
-                    {user?.username ? user.username.substring(0, 2).toUpperCase() : "SA"}
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-sm font-bold text-white shadow-sm uppercase shrink-0">
+                    {user?.full_name
+                      ? user.full_name
+                          .split(" ")
+                          .map((p) => p[0])
+                          .join("")
+                          .substring(0, 2)
+                          .toUpperCase()
+                      : user?.username
+                      ? user.username.substring(0, 2).toUpperCase()
+                      : "SA"}
                   </div>
                   <div className="min-w-0">
                     <h4 className="text-sm font-semibold text-foreground truncate">
-                      {user?.username || "SRE Operator"}
+                      {user?.full_name || user?.username || "SRE Operator"}
                     </h4>
                     <p className="text-xs text-muted-foreground truncate">
-                      {user?.role ? `${user.role.toUpperCase()} • Active` : "Sentinel Mesh Admin"}
+                      {user?.email || (user?.username ? `${user.username}@sentinel.ai` : "admin@sentinel.ai")}
                     </p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="text-[10px] font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded border border-primary/20 uppercase tracking-wide">
+                        {user?.role || "Operator"}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="py-3 border-b border-border space-y-1 text-xs">
+                {/* TENANT / WORKSPACE CONTEXT */}
+                <div className="py-2.5 px-3 my-2.5 rounded-lg bg-secondary/60 border border-border/60 text-xs space-y-1">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Organization:</span>
+                    <span className="font-semibold text-foreground truncate max-w-[140px]">
+                      {user?.organization || "Sentinel Corp"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Workspace:</span>
+                    <span className="font-semibold text-foreground truncate max-w-[140px]">
+                      {user?.workspace || "Production Mesh"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="py-2 border-b border-border space-y-1 text-xs">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span>Registered Services:</span>
                     <span className="font-semibold text-foreground">{services.length}</span>
