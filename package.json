@@ -1,14 +1,20 @@
 {
   "name": "sentinel-ai",
   "private": true,
+  "workspaces": [
+    "frontend"
+  ],
   "scripts": {
-    "build": "npm run build --prefix frontend",
+    "build": "npm run build --prefix frontend && node -e \"const fs=require('fs'); if (!fs.existsSync('dist') && fs.existsSync('frontend/dist')) fs.cpSync('frontend/dist', 'dist', {recursive: true}); if (!fs.existsSync('frontend/dist') && fs.existsSync('dist')) fs.cpSync('dist', 'frontend/dist', {recursive: true});\"",
     "dev": "npm run dev --prefix frontend"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "lucide-react": "^1.43.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "recharts": "^3.10.1",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.2.2"
   }
 }

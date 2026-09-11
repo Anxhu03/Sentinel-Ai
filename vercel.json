@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd frontend && npm install && npm run build",
+  "buildCommand": "npm run build",
   "outputDirectory": "frontend/dist",
   "rewrites": [
     {
@@ -7,7 +7,7 @@
       "destination": "/api/index.py"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]

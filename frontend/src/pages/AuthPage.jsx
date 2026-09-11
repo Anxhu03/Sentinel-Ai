@@ -529,6 +529,17 @@ export default function AuthPage({ onNavigate, onLoginSuccess, initialNotice, in
                     <label className="text-xs font-semibold text-foreground/80" htmlFor="login-password">
                       Password
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginIdentifier("admin@sentinel.ai")
+                        setLoginPassword("sentinel_admin_password_2026")
+                        setFieldErrors({})
+                      }}
+                      className="text-[11px] text-primary hover:text-primary/80 font-medium hover:underline cursor-pointer"
+                    >
+                      Quick Fill Admin
+                    </button>
                   </div>
                   <div className="relative">
                     <input

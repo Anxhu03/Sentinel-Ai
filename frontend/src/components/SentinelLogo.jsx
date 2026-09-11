@@ -15,8 +15,10 @@ export default function SentinelLogo({
   animated = true,
   onClick = null,
 }) {
-  const gradientId = useId()
-  const filterId = useId()
+  const rawGradId = useId()
+  const rawFilterId = useId()
+  const gradientId = "sentinel-grad-" + rawGradId.replace(/[^a-zA-Z0-9_-]/g, "")
+  const filterId = "sentinel-filt-" + rawFilterId.replace(/[^a-zA-Z0-9_-]/g, "")
 
   const numBlades = 12
   const bladePath = "M 50 12 C 64 12 77 24 74 38 C 71 49 60 49 50 42"
