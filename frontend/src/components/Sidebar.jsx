@@ -35,15 +35,27 @@ const systemNavigation = [
 
 const getCurrentPage = () => {
   const hash = window.location.hash.replace(/^#/, "")
-  if (!hash) return "Overview"
+  const path = window.location.pathname.replace(/^\/+/, "").replace(/^app\//, "")
+  const target = hash || path
+  if (!target) return "Overview"
   try {
-    return decodeURIComponent(hash)
+    const decoded = decodeURIComponent(target).replace(/^\/+/, "").replace(/^app\//, "")
+    const lower = decoded.toLowerCase().trim()
+    if (lower === "services") return "Services"
+    if (lower === "dependencies") return "Dependencies"
+    if (lower === "monitoring") return "Monitoring"
+    if (lower === "ai-investigation" || lower === "ai investigation") return "AI Investigation"
+    if (lower === "remediation") return "Remediation"
+    if (lower === "memory" || lower === "incident memory" || lower === "incident-memory") return "Incident Memory"
+    if (lower === "system health" || lower === "system-health") return "System Health"
+    if (lower === "settings") return "Settings"
+    return decoded
   } catch {
     return "Overview"
   }
 }
 
-export default function Sidebar({ collapsed, onToggleCollapse }) {
+export default function Sidebar({ collapsed, onToggleCollapse, activePage, onNavigate }) {
   const [active, setActive] = useState(getCurrentPage)
 
   useEffect(() => {
@@ -52,19 +64,27 @@ export default function Sidebar({ collapsed, onToggleCollapse }) {
     }
 
     window.addEventListener("hashchange", handleNavigation)
+    window.addEventListener("popstate", handleNavigation)
     return () => {
       window.removeEventListener("hashchange", handleNavigation)
+      window.removeEventListener("popstate", handleNavigation)
     }
   }, [])
 
+  const currentActive = activePage || active
+
   const navigate = (label) => {
     setActive(label)
-    const newHash = encodeURIComponent(label)
-    if (window.location.hash.replace("#", "") === newHash) {
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-      return
+    if (onNavigate) {
+      onNavigate(label)
+    } else {
+      const newHash = encodeURIComponent(label)
+      if (window.location.hash.replace("#", "") === newHash) {
+        window.dispatchEvent(new HashChangeEvent("hashchange"))
+        return
+      }
+      window.location.hash = newHash
     }
-    window.location.hash = newHash
   }
 
   return (
@@ -96,7 +116,7 @@ export default function Sidebar({ collapsed, onToggleCollapse }) {
 
         {primaryNavigation.map((item) => {
           const Icon = item.icon
-          const isActive = active === item.label
+          const isActive = currentActive === item.label
 
           return (
             <button
@@ -157,7 +177,7 @@ export default function Sidebar({ collapsed, onToggleCollapse }) {
         {systemNavigation.map((item) => {
           const Icon = item.icon
           const targetPage = item.page || item.label
-          const isActive = active === targetPage
+          const isActive = currentActive === targetPage
 
           return (
             <button

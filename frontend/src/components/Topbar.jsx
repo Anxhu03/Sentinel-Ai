@@ -78,26 +78,29 @@ const NAVIGATION = [
   },
 ]
 
-function navigateTo(label) {
-  const nextHash = encodeURIComponent(label)
-  if (window.location.hash === `#${nextHash}`) {
-    window.dispatchEvent(new HashChangeEvent("hashchange"))
-    return
-  }
-  window.location.hash = nextHash
-}
-
 function getCurrentPage() {
   const hash = window.location.hash.replace(/^#/, "")
-  if (!hash) return "Overview"
+  const path = window.location.pathname.replace(/^\/+/, "").replace(/^app\//, "")
+  const target = hash || path
+  if (!target) return "Overview"
   try {
-    return decodeURIComponent(hash)
+    const decoded = decodeURIComponent(target).replace(/^\/+/, "").replace(/^app\//, "")
+    const lower = decoded.toLowerCase().trim()
+    if (lower === "services") return "Services"
+    if (lower === "dependencies") return "Dependencies"
+    if (lower === "monitoring") return "Monitoring"
+    if (lower === "ai-investigation" || lower === "ai investigation") return "AI Investigation"
+    if (lower === "remediation") return "Remediation"
+    if (lower === "memory" || lower === "incident memory" || lower === "incident-memory") return "Incident Memory"
+    if (lower === "system health" || lower === "system-health") return "System Health"
+    if (lower === "settings") return "Settings"
+    return decoded
   } catch {
     return "Overview"
   }
 }
 
-export default function Topbar({ onTriggerIncident, user, onLogout }) {
+export default function Topbar({ onTriggerIncident, user, onLogout, activePage, onNavigate }) {
   const [currentPage, setCurrentPage] = useState(getCurrentPage)
   const [searchOpen, setSearchOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
@@ -112,10 +115,27 @@ export default function Topbar({ onTriggerIncident, user, onLogout }) {
   const profileRef = useRef(null)
   const notificationRef = useRef(null)
 
+  const navigateTo = (label) => {
+    if (onNavigate) {
+      onNavigate(label)
+    } else {
+      const nextHash = encodeURIComponent(label)
+      if (window.location.hash === `#${nextHash}`) {
+        window.dispatchEvent(new HashChangeEvent("hashchange"))
+        return
+      }
+      window.location.hash = nextHash
+    }
+  }
+
   useEffect(() => {
     const handleHash = () => setCurrentPage(getCurrentPage())
     window.addEventListener("hashchange", handleHash)
-    return () => window.removeEventListener("hashchange", handleHash)
+    window.addEventListener("popstate", handleHash)
+    return () => {
+      window.removeEventListener("hashchange", handleHash)
+      window.removeEventListener("popstate", handleHash)
+    }
   }, [])
 
   useEffect(() => {
@@ -261,7 +281,7 @@ export default function Topbar({ onTriggerIncident, user, onLogout }) {
         {/* LEFT: PAGE TITLE & CONTEXT BADGE */}
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-semibold text-foreground tracking-tight">
-            {currentPage}
+            {activePage || currentPage}
           </h1>
 
           <div className="hidden md:flex items-center gap-2 text-xs font-medium text-muted-foreground bg-secondary px-2.5 py-1 rounded-full border border-border">

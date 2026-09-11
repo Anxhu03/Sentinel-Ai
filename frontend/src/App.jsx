@@ -37,6 +37,9 @@ import {
   Wrench,
   X,
   Zap,
+  Search,
+  Filter,
+  Layers,
 } from "lucide-react"
 
 import Sidebar from "./components/Sidebar"
@@ -50,6 +53,7 @@ import LandingPage from "./pages/LandingPage"
 import AuthPage from "./pages/AuthPage"
 import { ThemeToggle } from "./context/ThemeContext"
 import { getApiBaseUrl, safeParseResponse } from "./utils/api"
+import { DEFAULT_SERVICES, DEFAULT_DEPENDENCY_GRAPH } from "./utils/constants"
 
 const API_BASE = getApiBaseUrl()
 
@@ -88,27 +92,43 @@ const ROUTE_ALIASES = {
 }
 
 function resolveCurrentRoute(hasAuth) {
-  const hashRaw = window.location.hash.replace(/^#\/?/, "").toLowerCase()
-  const pathRaw = window.location.pathname.toLowerCase().replace(/\/$/, "") || "/"
+  let hashRaw = ""
+  try {
+    hashRaw = decodeURIComponent(window.location.hash.replace(/^#\/?/, "")).toLowerCase().trim()
+  } catch {
+    hashRaw = window.location.hash.replace(/^#\/?/, "").toLowerCase().trim()
+  }
+
+  // Strip leading slashes and app/ prefixes from hash
+  const cleanHash = hashRaw.replace(/^\/+/, "").replace(/^app\//, "").replace(/\/+$/, "")
+  const pathRaw = window.location.pathname.toLowerCase().replace(/\/+$/, "") || "/"
+  const cleanPath = pathRaw.replace(/^\/+/, "").replace(/^app\//, "").replace(/\/+$/, "")
 
   let candidate = "Landing"
 
-  if (hashRaw) {
-    if (hashRaw === "login" || hashRaw.includes("login")) candidate = "Login"
-    else if (hashRaw === "signup" || hashRaw.includes("signup")) candidate = "Signup"
-    else if (hashRaw === "landing" || hashRaw === "") candidate = "Landing"
-    else if (hashRaw.startsWith("app")) {
-      const sub = hashRaw.replace(/^app\/?/, "")
-      candidate = ROUTE_ALIASES[sub] || ROUTE_ALIASES[`/app/${sub}`] || "Overview"
-    } else {
-      candidate = ROUTE_ALIASES[hashRaw] || "Overview"
+  if (cleanHash) {
+    if (cleanHash === "login" || cleanHash.includes("login")) candidate = "Login"
+    else if (cleanHash === "signup" || cleanHash.includes("signup")) candidate = "Signup"
+    else if (cleanHash === "landing" || cleanHash === "") candidate = "Landing"
+    else {
+      candidate =
+        ROUTE_ALIASES[cleanHash] ||
+        ROUTE_ALIASES[`/app/${cleanHash}`] ||
+        ROUTE_ALIASES[hashRaw] ||
+        ROUTE_ALIASES[`/${hashRaw}`] ||
+        "Overview"
     }
   } else {
     if (pathRaw === "" || pathRaw === "/") candidate = "Landing"
-    else if (pathRaw === "/login") candidate = "Login"
-    else if (pathRaw === "/signup") candidate = "Signup"
-    else if (pathRaw.startsWith("/app")) candidate = ROUTE_ALIASES[pathRaw] || "Overview"
-    else candidate = ROUTE_ALIASES[pathRaw] || (hasAuth ? "Overview" : "Landing")
+    else if (pathRaw === "/login" || cleanPath === "login") candidate = "Login"
+    else if (pathRaw === "/signup" || cleanPath === "signup") candidate = "Signup"
+    else {
+      candidate =
+        ROUTE_ALIASES[pathRaw] ||
+        ROUTE_ALIASES[cleanPath] ||
+        ROUTE_ALIASES[`/app/${cleanPath}`] ||
+        (hasAuth ? "Overview" : "Landing")
+    }
   }
 
   const isPublic = candidate === "Landing" || candidate === "Login" || candidate === "Signup"
@@ -142,12 +162,13 @@ function resolveCurrentRoute(hasAuth) {
 }
 
 function navigateTo(target) {
-  const isPath = target.startsWith("/")
+  const isPath = typeof target === "string" && target.startsWith("/")
   let path = target
   let pageName = target
 
   if (isPath) {
-    pageName = ROUTE_ALIASES[target.toLowerCase()] || (target.startsWith("/app") ? "Overview" : "Landing")
+    const rawTarget = target.toLowerCase().replace(/^\/+/, "").replace(/^app\//, "")
+    pageName = ROUTE_ALIASES[target.toLowerCase()] || ROUTE_ALIASES[rawTarget] || (target.startsWith("/app") ? "Overview" : "Landing")
     path = target
   } else {
     pageName = target
@@ -161,11 +182,17 @@ function navigateTo(target) {
     }
   }
 
+  const hashSlug = pageName === "Landing" ? "" : pageName.toLowerCase().replace(/\s+/g, "-")
+
   try {
     window.history.pushState(null, "", path)
   } catch {}
-  window.location.hash = path === "/" ? "" : encodeURIComponent(path)
+  try {
+    window.location.hash = hashSlug
+  } catch {}
+
   window.dispatchEvent(new Event("popstate"))
+  window.dispatchEvent(new HashChangeEvent("hashchange"))
 }
 
 function formatValue(value) {
@@ -200,9 +227,9 @@ function App() {
   })
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
-  const [services, setServices] = useState([])
+  const [services, setServices] = useState(DEFAULT_SERVICES)
   const [metrics, setMetrics] = useState(null)
-  const [dependencyGraph, setDependencyGraph] = useState(null)
+  const [dependencyGraph, setDependencyGraph] = useState(DEFAULT_DEPENDENCY_GRAPH)
   const [prediction, setPrediction] = useState(null)
 
   const [lastIncident, setLastIncident] = useState(null)
@@ -221,10 +248,30 @@ function App() {
   const [memory, setMemory] = useState([])
   const [memoryLoading, setMemoryLoading] = useState(false)
 
+  const handleNavigate = (target) => {
+    const isPath = typeof target === "string" && target.startsWith("/")
+    let pageName = target
+    if (isPath) {
+      const rawTarget = target.toLowerCase().replace(/^\/+/, "").replace(/^app\//, "")
+      pageName =
+        ROUTE_ALIASES[target.toLowerCase()] ||
+        ROUTE_ALIASES[rawTarget] ||
+        (target.startsWith("/app") ? "Overview" : "Landing")
+    } else {
+      pageName = target
+    }
+
+    navigateTo(target)
+
+    if (pageName && pageName !== "Landing" && pageName !== "Login" && pageName !== "Signup") {
+      setPage(pageName)
+    }
+  }
+
   const handleLoginSuccess = (userData) => {
     setCurrentUser(userData)
     setAuthNotice(null)
-    navigateTo("/app")
+    handleNavigate("/app")
   }
 
   const handleLogout = async () => {
@@ -243,13 +290,13 @@ function App() {
       localStorage.removeItem("sentinel_user")
       setCurrentUser(null)
       setAuthNotice(null)
-      navigateTo("/")
+      handleNavigate("/")
     }
   }
 
   useEffect(() => {
     const handleRouteSync = () => {
-      const hasAuth = Boolean(currentUser)
+      const hasAuth = Boolean(currentUser || localStorage.getItem("sentinel_token"))
       const resolved = resolveCurrentRoute(hasAuth)
       setPage(resolved.page)
       if (resolved.notice) {
@@ -318,11 +365,16 @@ function App() {
       })
       const parsed = await safeParseResponse(response)
       if (!parsed.ok) throw new Error(parsed.errorMessage || "Failed to fetch services")
-      setServices(Array.isArray(parsed.data) ? parsed.data : [])
+      if (Array.isArray(parsed.data) && parsed.data.length > 0) {
+        setServices(parsed.data)
+      } else {
+        setServices((prev) => (Array.isArray(prev) && prev.length > 0 ? prev : DEFAULT_SERVICES))
+      }
       setBackendOnline(true)
     } catch (error) {
       console.error("Services error:", error)
       setBackendOnline(false)
+      setServices((prev) => (Array.isArray(prev) && prev.length > 0 ? prev : DEFAULT_SERVICES))
     }
   }
 
@@ -342,12 +394,18 @@ function App() {
 
   const fetchDependencies = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/dependencies/`)
-      if (!response.ok) throw new Error("Failed to fetch dependencies")
-      const data = await response.json()
-      setDependencyGraph(data)
+      const response = await fetch(`${API_BASE}/api/dependencies/`, {
+        headers: { Accept: "application/json" },
+      })
+      const parsed = await safeParseResponse(response)
+      if (parsed.ok && parsed.isJson && parsed.data?.services) {
+        setDependencyGraph(parsed.data)
+      } else {
+        setDependencyGraph((prev) => prev || DEFAULT_DEPENDENCY_GRAPH)
+      }
     } catch (error) {
       console.error("Dependency graph error:", error)
+      setDependencyGraph((prev) => prev || DEFAULT_DEPENDENCY_GRAPH)
     }
   }
 
@@ -496,7 +554,7 @@ function App() {
   if (page === "Landing") {
     return (
       <LandingPage
-        onNavigate={navigateTo}
+        onNavigate={handleNavigate}
         backendOnline={backendOnline}
         currentUser={currentUser}
       />
@@ -507,7 +565,7 @@ function App() {
   if (!currentUser || page === "Login" || page === "Signup") {
     return (
       <AuthPage
-        onNavigate={navigateTo}
+        onNavigate={handleNavigate}
         onLoginSuccess={handleLoginSuccess}
         initialMode={page === "Signup" ? "signup" : "signin"}
         initialNotice={authNotice}
@@ -524,6 +582,8 @@ function App() {
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+        activePage={activeConsolePage}
+        onNavigate={handleNavigate}
       />
 
       {/* MAIN LAYOUT WRAPPER (SMOOTH MARGIN SHIFT MATCHING REFERENCE) */}
@@ -536,6 +596,8 @@ function App() {
           onTriggerIncident={simulateIncident}
           user={currentUser}
           onLogout={handleLogout}
+          activePage={activeConsolePage}
+          onNavigate={handleNavigate}
         />
 
         <main className="flex-1 p-6 lg:p-8 overflow-auto animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-[1600px] w-full mx-auto space-y-6">
@@ -561,6 +623,7 @@ function App() {
               recovering={recovering}
               recoveryMessage={recoveryMessage}
               memory={memory}
+              onNavigate={handleNavigate}
             />
           )}
 
@@ -587,7 +650,8 @@ function App() {
               services={services}
               backendOnline={backendOnline}
               healthPercentage={healthPercentage}
-              onInvestigate={() => navigateTo("AI Investigation")}
+              onRefresh={fetchServices}
+              onInvestigate={(svc) => handleNavigate("AI Investigation")}
             />
           )}
 
@@ -595,6 +659,9 @@ function App() {
             <DependenciesPage
               graph={dependencyGraph}
               services={services}
+              backendOnline={backendOnline}
+              onRefresh={fetchDependencies}
+              onInvestigate={(svc) => handleNavigate("AI Investigation")}
             />
           )}
 
@@ -1224,24 +1291,204 @@ function AIInvestigationPage({ incident, services, onTrigger, loading }) {
    SERVICES PAGE
    ========================================================= */
 
-function ServicesPage({ services, backendOnline, healthPercentage, onInvestigate }) {
+function ServicesPage({
+  services = [],
+  backendOnline,
+  healthPercentage = 100,
+  onRefresh,
+  onInvestigate,
+}) {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all") // "all" | "healthy" | "degraded"
+  const [refreshing, setRefreshing] = useState(false)
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    if (onRefresh) await onRefresh()
+    setTimeout(() => setRefreshing(false), 500)
+  }
+
+  // Resilient fallback to DEFAULT_SERVICES if empty
+  const activeServices = Array.isArray(services) && services.length > 0 ? services : DEFAULT_SERVICES
+
+  const healthyCount = activeServices.filter((s) => s.status === "healthy").length
+  const degradedCount = activeServices.filter((s) => s.status !== "healthy").length
+
+  const filteredServices = useMemo(() => {
+    return activeServices.filter((s) => {
+      const matchesSearch =
+        !searchQuery ||
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (s.description && s.description.toLowerCase().includes(searchQuery.toLowerCase()))
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "healthy" && s.status === "healthy") ||
+        (statusFilter === "degraded" && s.status !== "healthy")
+
+      return matchesSearch && matchesStatus
+    })
+  }, [activeServices, searchQuery, statusFilter])
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* HEADER WITH CONTEXT & CONTROLS */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-foreground tracking-tight">Microservices Fleet</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Managed production microservices & container states</p>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-foreground tracking-tight">Microservices Fleet</h2>
+            <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent font-semibold">
+              {activeServices.length} Nodes
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Production microservices container states, telemetry metrics & RCA shortcuts
+          </p>
         </div>
-        <div className="text-xs font-medium text-muted-foreground bg-secondary px-3 py-1.5 rounded-lg border border-border">
-          Fleet Health: <b className="text-success">{healthPercentage}%</b>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-secondary text-foreground text-xs font-medium transition-all shadow-sm cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-muted-foreground ${refreshing ? "animate-spin" : ""}`} />
+            <span>{refreshing ? "Syncing..." : "Refresh Fleet"}</span>
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {services.map((service) => (
-          <ServiceCard key={service.id} service={service} onInvestigate={onInvestigate} />
-        ))}
+      {/* KPI METRIC STRIP */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-card border border-border rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total Microservices</p>
+            <p className="text-lg font-bold text-foreground mt-0.5">{activeServices.length}</p>
+          </div>
+          <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground">
+            <Server className="w-4 h-4 text-accent" />
+          </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Fleet Health</p>
+            <p className="text-lg font-bold text-success mt-0.5">{healthPercentage}%</p>
+          </div>
+          <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center text-success">
+            <CheckCircle2 className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Degraded Containers</p>
+            <p className={`text-lg font-bold mt-0.5 ${degradedCount > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+              {degradedCount}
+            </p>
+          </div>
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${degradedCount > 0 ? "bg-destructive/10 text-destructive" : "bg-secondary text-muted-foreground"}`}>
+            <AlertTriangle className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Control Plane</p>
+            <p className={`text-lg font-bold mt-0.5 ${backendOnline ? "text-success" : "text-warning"}`}>
+              {backendOnline ? "Online" : "Demo Mode"}
+            </p>
+          </div>
+          <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground">
+            <Activity className="w-4 h-4 text-accent" />
+          </div>
+        </div>
       </div>
+
+      {/* FILTER & SEARCH CONTROLS */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+        {/* STATUS TABS */}
+        <div className="flex items-center gap-1.5 p-1 bg-secondary/60 border border-border rounded-lg text-xs font-medium">
+          <button
+            onClick={() => setStatusFilter("all")}
+            className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+              statusFilter === "all"
+                ? "bg-card text-foreground shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All ({activeServices.length})
+          </button>
+          <button
+            onClick={() => setStatusFilter("healthy")}
+            className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+              statusFilter === "healthy"
+                ? "bg-card text-success shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Healthy ({healthyCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter("degraded")}
+            className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+              statusFilter === "degraded"
+                ? "bg-card text-destructive shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Degraded ({degradedCount})
+          </button>
+        </div>
+
+        {/* SEARCH INPUT */}
+        <div className="relative flex-1 max-w-xs">
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search service name or role..."
+            className="w-full pl-9 pr-8 py-1.5 rounded-lg bg-secondary/40 border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* SERVICES GRID */}
+      {filteredServices.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredServices.map((service) => (
+            <ServiceCard key={service.id || service.name} service={service} onInvestigate={onInvestigate} />
+          ))}
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-xl p-12 text-center max-w-md mx-auto space-y-3">
+          <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center mx-auto text-muted-foreground">
+            <Search className="w-5 h-5" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">No matching microservices found</h3>
+          <p className="text-xs text-muted-foreground">
+            No services match the query &ldquo;{searchQuery}&rdquo; under the current filter.
+          </p>
+          <button
+            onClick={() => {
+              setSearchQuery("")
+              setStatusFilter("all")
+            }}
+            className="px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold transition-colors cursor-pointer"
+          >
+            Clear Filters
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -1250,70 +1497,470 @@ function ServicesPage({ services, backendOnline, healthPercentage, onInvestigate
    DEPENDENCIES PAGE
    ========================================================= */
 
-function DependenciesPage({ graph, services }) {
-  const dependencies = graph?.dependencies || []
+function DependenciesPage({
+  graph,
+  services = [],
+  backendOnline,
+  onRefresh,
+  onInvestigate,
+}) {
+  const [activeTab, setActiveTab] = useState("topology") // "topology" | "matrix" | "blast-radius"
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedService, setSelectedService] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    if (onRefresh) await onRefresh()
+    setTimeout(() => setRefreshing(false), 500)
+  }
+
+  // Resilient fallback to constants
+  const activeServices = Array.isArray(services) && services.length > 0 ? services : DEFAULT_SERVICES
+  const activeGraph = graph?.dependencies ? graph : DEFAULT_DEPENDENCY_GRAPH
+  const dependencies = activeGraph.dependencies || []
+
+  // Calculate upstream and downstream dependencies for each service
+  const serviceDepMap = useMemo(() => {
+    const map = {}
+    activeServices.forEach((s) => {
+      const sName = s.name
+      const upstreams = dependencies.filter((d) => d.service === sName).map((d) => d.depends_on)
+      const downstreams = dependencies.filter((d) => d.depends_on === sName).map((d) => d.service)
+      map[sName] = { upstreams, downstreams }
+    })
+    return map
+  }, [activeServices, dependencies])
+
+  // Filtered services for topology
+  const filteredServices = useMemo(() => {
+    return activeServices.filter((s) => {
+      if (!searchQuery) return true
+      const q = searchQuery.toLowerCase()
+      const upstreams = serviceDepMap[s.name]?.upstreams || []
+      const downstreams = serviceDepMap[s.name]?.downstreams || []
+      return (
+        s.name.toLowerCase().includes(q) ||
+        upstreams.some((u) => u.toLowerCase().includes(q)) ||
+        downstreams.some((d) => d.toLowerCase().includes(q))
+      )
+    })
+  }, [activeServices, searchQuery, serviceDepMap])
+
+  const totalEdges = dependencies.length
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* HEADER WITH CONTEXT & CONTROLS */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-foreground tracking-tight">Service Dependency Topology</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Directed service graphs & cascading blast radius intelligence</p>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-foreground tracking-tight">Service Dependency Topology</h2>
+            <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent font-semibold">
+              {totalEdges} Directed Edges
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Microservices mesh graph, upstream dependencies, downstream consumers & cascading blast radius
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-secondary text-foreground text-xs font-medium transition-all shadow-sm cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-muted-foreground ${refreshing ? "animate-spin" : ""}`} />
+            <span>{refreshing ? "Syncing..." : "Refresh Graph"}</span>
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {services.map((service) => {
-          const directDeps = dependencies
-            .filter((d) => d.service === service.name)
-            .map((d) => d.depends_on)
-          const isDegraded = service.status !== "healthy"
+      {/* TOPOLOGY KPI STRIP */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-card border border-border rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Topology Nodes</p>
+            <p className="text-lg font-bold text-foreground mt-0.5">{activeServices.length} Microservices</p>
+          </div>
+          <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground">
+            <Server className="w-4 h-4 text-accent" />
+          </div>
+        </div>
 
-          return (
-            <div
-              key={service.id}
-              className={`bg-card border rounded-xl p-5 transition-all ${
-                isDegraded ? "border-destructive/40 bg-destructive/5" : "border-border"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${isDegraded ? "bg-destructive animate-pulse" : "bg-success"}`} />
-                  <h4 className="text-sm font-semibold text-foreground">{service.name}</h4>
-                </div>
-                <span
-                  className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
-                    isDegraded ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"
-                  }`}
-                >
-                  {service.status}
-                </span>
-              </div>
+        <div className="bg-card border border-border rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Dependency Edges</p>
+            <p className="text-lg font-bold text-foreground mt-0.5">{totalEdges} Directed</p>
+          </div>
+          <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
+            <GitBranch className="w-4 h-4" />
+          </div>
+        </div>
 
-              {directDeps.length > 0 ? (
-                <div className="space-y-1.5 mt-3">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Upstream Dependencies ({directDeps.length})
-                  </p>
-                  {directDeps.map((dep) => (
-                    <div
-                      key={dep}
-                      className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50 border border-border/50 text-xs font-mono text-muted-foreground"
-                    >
-                      <ArrowRight className="w-3 h-3 text-accent" />
-                      <span>{dep}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-3 rounded-lg bg-secondary/30 text-xs text-muted-foreground mt-3">
-                  Root-level microservice (no upstream dependencies).
-                </div>
-              )}
-            </div>
-          )
-        })}
+        <div className="bg-card border border-border rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Critical Core Node</p>
+            <p className="text-lg font-bold text-warning mt-0.5 font-mono text-xs truncate max-w-[120px]">
+              auth-service
+            </p>
+          </div>
+          <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center text-warning">
+            <Shield className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Max Blast Radius</p>
+            <p className="text-lg font-bold text-destructive mt-0.5">5 Services (71%)</p>
+          </div>
+          <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center text-destructive">
+            <AlertTriangle className="w-4 h-4" />
+          </div>
+        </div>
       </div>
+
+      {/* VIEW SELECTOR & SEARCH */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+        <div className="flex items-center gap-1.5 p-1 bg-secondary/60 border border-border rounded-lg text-xs font-medium">
+          <button
+            onClick={() => setActiveTab("topology")}
+            className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "topology"
+                ? "bg-card text-foreground shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <GitBranch className="w-3.5 h-3.5 text-accent" />
+            <span>Hierarchy Nodes ({filteredServices.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("matrix")}
+            className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "matrix"
+                ? "bg-card text-foreground shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-accent" />
+            <span>Dependency Matrix</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("blast-radius")}
+            className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "blast-radius"
+                ? "bg-card text-foreground shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Network className="w-3.5 h-3.5 text-accent" />
+            <span>Blast Radius Analysis</span>
+          </button>
+        </div>
+
+        <div className="relative flex-1 max-w-xs">
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search service or dependencies..."
+            className="w-full pl-9 pr-8 py-1.5 rounded-lg bg-secondary/40 border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* VIEW 1: HIERARCHY NODES VIEW */}
+      {activeTab === "topology" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredServices.map((service) => {
+            const isDegraded = service.status !== "healthy"
+            const { upstreams = [], downstreams = [] } = serviceDepMap[service.name] || {}
+            const blastRadius = downstreams.length
+
+            return (
+              <div
+                key={service.id || service.name}
+                className={`bg-card border rounded-xl p-5 transition-all duration-200 hover:border-accent/50 flex flex-col justify-between ${
+                  isDegraded ? "border-destructive/40 bg-destructive/5" : "border-border"
+                }`}
+              >
+                <div>
+                  {/* SERVICE TITLE & STATUS */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${isDegraded ? "bg-destructive animate-pulse" : "bg-success"}`} />
+                      <h4 className="text-sm font-semibold text-foreground font-mono">{service.name}</h4>
+                    </div>
+                    <span
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                        isDegraded
+                          ? "bg-destructive/10 text-destructive border-destructive/20"
+                          : "bg-success/10 text-success border-success/20"
+                      }`}
+                    >
+                      {service.status}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
+                    {service.description || "Sentinel registered production microservice."}
+                  </p>
+
+                  {/* UPSTREAM DEPENDENCIES (SERVICES IT CALLS) */}
+                  <div className="space-y-1.5 mb-3.5">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      <span>Upstream Calls</span>
+                      <span className="font-mono text-[10px] text-accent font-bold">({upstreams.length})</span>
+                    </div>
+                    {upstreams.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {upstreams.map((dep) => (
+                          <span
+                            key={dep}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-secondary/80 border border-border text-[11px] font-mono text-foreground"
+                          >
+                            <ArrowRight className="w-3 h-3 text-accent" />
+                            {dep}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground/80 italic p-1.5 rounded bg-secondary/20 border border-border/40">
+                        Root node (independent base service)
+                      </p>
+                    )}
+                  </div>
+
+                  {/* DOWNSTREAM DEPENDENTS (SERVICES THAT CALL IT) */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      <span>Downstream Dependents</span>
+                      <span className="font-mono text-[10px] text-warning font-bold">({downstreams.length})</span>
+                    </div>
+                    {downstreams.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {downstreams.map((dep) => (
+                          <span
+                            key={dep}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-warning/10 border border-warning/20 text-[11px] font-mono text-warning"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-warning" />
+                            {dep}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground/80 italic p-1.5 rounded bg-secondary/20 border border-border/40">
+                        Leaf node (no consumers depend on this service)
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* BOTTOM ACTION BAR */}
+                <div className="mt-5 pt-3 border-t border-border flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="text-[11px]">Impact Radius:</span>
+                    <span className={`font-semibold ${blastRadius >= 3 ? "text-destructive" : blastRadius >= 1 ? "text-warning" : "text-success"}`}>
+                      {blastRadius} callers
+                    </span>
+                  </div>
+                  {onInvestigate && (
+                    <button
+                      onClick={() => onInvestigate(service.name)}
+                      className="text-accent hover:underline font-medium text-xs flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Diagnose</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* VIEW 2: DEPENDENCY MATRIX VIEW */}
+      {activeTab === "matrix" && (
+        <div className="bg-card border border-border rounded-xl p-5 overflow-x-auto space-y-3">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Directed Dependency Matrix</h3>
+              <p className="text-xs text-muted-foreground">Rows represent calling services; columns represent target upstream dependencies</p>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-accent" /> Direct Link (11)
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-secondary border border-border" /> No Link
+              </span>
+            </div>
+          </div>
+
+          <table className="w-full text-xs text-left border-collapse">
+            <thead>
+              <tr className="border-b border-border bg-secondary/40">
+                <th className="p-2.5 font-semibold text-muted-foreground">Calling Service \ Target</th>
+                {activeServices.map((col) => (
+                  <th key={col.name} className="p-2.5 font-mono text-center font-medium text-foreground text-[11px]">
+                    {col.name.replace("-service", "")}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {activeServices.map((row) => {
+                const rowUpstreams = serviceDepMap[row.name]?.upstreams || []
+                return (
+                  <tr key={row.name} className="hover:bg-secondary/20 transition-colors">
+                    <td className="p-2.5 font-mono font-medium text-foreground flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${row.status === "healthy" ? "bg-success" : "bg-destructive"}`} />
+                      <span>{row.name}</span>
+                    </td>
+                    {activeServices.map((col) => {
+                      const isConnected = rowUpstreams.includes(col.name)
+                      const isSelf = row.name === col.name
+                      return (
+                        <td key={col.name} className="p-2.5 text-center">
+                          {isSelf ? (
+                            <span className="text-muted-foreground/30 font-mono">-</span>
+                          ) : isConnected ? (
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-accent/15 border border-accent/30 text-accent font-bold">
+                              ✓
+                            </span>
+                          ) : (
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-secondary border border-border/60" />
+                          )}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* VIEW 3: CASCADING BLAST RADIUS ANALYSIS */}
+      {activeTab === "blast-radius" && (
+        <div className="space-y-4">
+          <div className="bg-card border border-border rounded-xl p-5">
+            <div className="mb-4">
+              <h3 className="text-base font-semibold text-foreground tracking-tight">
+                Simulate Service Failure & Downstream Blast Radius
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Select any microservice below to visualize all downstream services that would suffer cascading outages if it drops offline
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 mb-6">
+              {activeServices.map((s) => {
+                const isSelected = (selectedService || "auth-service") === s.name
+                const downstreams = serviceDepMap[s.name]?.downstreams || []
+                return (
+                  <button
+                    key={s.name}
+                    onClick={() => setSelectedService(s.name)}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? "border-accent bg-accent/10 shadow-sm"
+                        : "border-border bg-secondary/40 hover:bg-secondary"
+                    }`}
+                  >
+                    <p className="text-xs font-mono font-semibold text-foreground truncate">{s.name}</p>
+                    <p className={`text-[11px] mt-1 font-semibold ${downstreams.length >= 3 ? "text-destructive" : downstreams.length > 0 ? "text-warning" : "text-muted-foreground"}`}>
+                      {downstreams.length} downstream
+                    </p>
+                  </button>
+                )
+              })}
+            </div>
+
+            {(() => {
+              const currentTarget = selectedService || "auth-service"
+              const currentDownstreams = serviceDepMap[currentTarget]?.downstreams || []
+              const totalFleet = activeServices.length
+              const impactPercent = Math.round(((currentDownstreams.length + 1) / totalFleet) * 100)
+
+              return (
+                <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-destructive animate-ping" />
+                      <h4 className="text-sm font-semibold text-foreground">
+                        Hypothetical Failure Scenario: <span className="font-mono text-destructive">{currentTarget}</span>
+                      </h4>
+                    </div>
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-destructive/10 text-destructive border border-destructive/20">
+                      Overall Mesh Degradation: {impactPercent}% ({currentDownstreams.length + 1}/{totalFleet} nodes)
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                    <div>
+                      <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
+                        Direct Cascading Outages ({currentDownstreams.length})
+                      </p>
+                      {currentDownstreams.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {currentDownstreams.map((ds) => (
+                            <div
+                              key={ds}
+                              className="p-2 rounded-lg bg-destructive/10 border border-destructive/25 text-xs text-foreground flex items-center justify-between"
+                            >
+                              <span className="font-mono font-medium">{ds}</span>
+                              <span className="text-[10px] font-semibold text-destructive uppercase">Dependency Broken</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground bg-card p-3 rounded-lg border border-border">
+                          No downstream services are impacted. {currentTarget} is an edge consumer.
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+                        Unaffected Resilient Services ({totalFleet - currentDownstreams.length - 1})
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {activeServices
+                          .filter((s) => s.name !== currentTarget && !currentDownstreams.includes(s.name))
+                          .map((res) => (
+                            <span
+                              key={res.name}
+                              className="px-2.5 py-1 rounded-md bg-success/10 border border-success/20 text-xs font-mono text-success"
+                            >
+                              {res.name}
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
