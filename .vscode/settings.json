@@ -16,5 +16,7 @@
     "${workspaceFolder}",
     "${workspaceFolder}/backend",
     "${workspaceFolder}/.venv/Lib/site-packages"
-  ]
+  ],
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore"
 }

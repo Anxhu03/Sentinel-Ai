@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { ThemeToggle } from "../context/ThemeContext"
 import { getApiBaseUrl, postAuthWithFallback } from "../utils/api"
+import SentinelLogo from "../components/SentinelLogo"
 
 export default function AuthPage({ onNavigate, onLoginSuccess, initialNotice, initialMode = "signin" }) {
   const [mode, setMode] = useState(initialMode) // "signin" | "signup"
@@ -259,19 +260,7 @@ export default function AuthPage({ onNavigate, onLoginSuccess, initialNotice, in
           <span>Back to Landing</span>
         </button>
 
-        <div
-          onClick={() => onNavigate("/")}
-          className="flex items-center gap-2.5 cursor-pointer"
-        >
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary via-accent to-purple-600 p-[1px] shadow-sm">
-            <div className="w-full h-full bg-card rounded-[11px] flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4 text-primary" />
-            </div>
-          </div>
-          <span className="font-bold text-base tracking-tight text-foreground">
-            Sentinel <span className="text-primary">AI</span>
-          </span>
-        </div>
+        <SentinelLogo size={30} onClick={() => onNavigate("/")} />
 
         <div className="flex items-center gap-2.5">
           <ThemeToggle />

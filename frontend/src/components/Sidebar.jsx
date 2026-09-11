@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from "lucide-react"
 import { useEffect, useState } from "react"
+import SentinelLogo from "./SentinelLogo"
 
 const primaryNavigation = [
   { label: "Overview", icon: LayoutDashboard },
@@ -74,23 +75,12 @@ export default function Sidebar({ collapsed, onToggleCollapse }) {
     >
       {/* BRAND HEADER */}
       <div className="h-16 flex items-center px-4 border-b border-sidebar-border shrink-0">
-        <div className="flex items-center gap-3 overflow-hidden">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-primary text-primary-foreground shadow-sm shadow-primary/30">
-            <Shield className="w-5 h-5 text-white" />
-          </div>
-
-          <div
-            className={`transition-all duration-300 ease-out flex flex-col ${
-              collapsed ? "opacity-0 w-0 pointer-events-none" : "opacity-100 w-auto"
-            }`}
-          >
-            <span className="font-semibold text-base text-sidebar-foreground tracking-tight whitespace-nowrap">
-              Sentinel AI
-            </span>
-            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider whitespace-nowrap">
-              Operations Core
-            </span>
-          </div>
+        <div className="flex items-center gap-3 overflow-hidden px-1">
+          <SentinelLogo
+            size={32}
+            withText={!collapsed}
+            subtitle={!collapsed ? "Operations Core" : null}
+          />
         </div>
       </div>
 

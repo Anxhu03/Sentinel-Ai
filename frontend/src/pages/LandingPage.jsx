@@ -32,6 +32,7 @@ import {
   Zap,
 } from "lucide-react"
 import { ThemeToggle } from "../context/ThemeContext"
+import SentinelLogo from "../components/SentinelLogo"
 
 export default function LandingPage({ onNavigate, backendOnline, currentUser }) {
   const [activeIncidentPreset, setActiveIncidentPreset] = useState("payment")
@@ -130,19 +131,29 @@ export default function LandingPage({ onNavigate, backendOnline, currentUser }) 
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-indigo-500/30 selection:text-indigo-950 dark:selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-300">
       {/* =========================================================
-          AMBIENT GLOWS & BACKGROUND GRID
+          AMBIENT GLOWS & BACKGROUND VERTICAL TECH GRID
+          (Matching reference image visual aesthetic)
           ========================================================= */}
-      <div className="fixed inset-0 pointer-events-none z-0">
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        {/* Vertical subtle technical grid lines */}
         <div
-          className="absolute inset-0 opacity-[0.04] dark:opacity-[0.12] transition-opacity duration-300"
+          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.06] transition-opacity duration-300"
           style={{
-            backgroundImage: `linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)`,
-            backgroundSize: "64px 64px",
+            backgroundImage: `repeating-linear-gradient(90deg, currentColor 0, currentColor 1px, transparent 1px, transparent 80px)`,
           }}
         />
-        <div className="absolute top-[-10%] left-[-5%] w-[600px] h-[600px] rounded-full bg-indigo-500/10 dark:bg-indigo-600/15 blur-[140px]" />
-        <div className="absolute top-[20%] right-[-10%] w-[650px] h-[650px] rounded-full bg-purple-500/10 dark:bg-purple-600/15 blur-[160px]" />
-        <div className="absolute bottom-[10%] left-[20%] w-[500px] h-[500px] rounded-full bg-blue-500/8 dark:bg-blue-600/10 blur-[130px]" />
+        {/* Subtle dot matrix grid */}
+        <div
+          className="absolute inset-0 opacity-[0.02] dark:opacity-[0.04]"
+          style={{
+            backgroundImage: `radial-gradient(circle, currentColor 1px, transparent 1px)`,
+            backgroundSize: "32px 32px",
+          }}
+        />
+        {/* Radiant atmospheric purple-violet bloom matching reference image */}
+        <div className="absolute top-[8%] right-[10%] w-[580px] h-[580px] rounded-full bg-gradient-to-br from-purple-500/20 via-fuchsia-600/15 to-indigo-600/20 blur-[150px] animate-pulse" style={{ animationDuration: "8s" }} />
+        <div className="absolute top-[-5%] left-[-5%] w-[500px] h-[500px] rounded-full bg-indigo-500/10 dark:bg-indigo-600/15 blur-[140px]" />
+        <div className="absolute bottom-[10%] left-[20%] w-[500px] h-[500px] rounded-full bg-purple-600/10 dark:bg-purple-800/15 blur-[160px]" />
       </div>
 
       {/* =========================================================
@@ -153,21 +164,12 @@ export default function LandingPage({ onNavigate, backendOnline, currentUser }) 
           {/* LOGO */}
           <div
             onClick={() => onNavigate("Landing")}
-            className="flex items-center gap-3 cursor-pointer group"
+            className="flex items-center gap-2 cursor-pointer group"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-indigo-600 p-[1px] shadow-lg shadow-indigo-500/20 group-hover:shadow-indigo-500/40 transition-all">
-              <div className="w-full h-full bg-card rounded-[11px] flex items-center justify-center">
-                <ShieldCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" />
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-lg tracking-tight text-foreground">
-                Sentinel <span className="text-indigo-600 dark:text-indigo-400 font-medium">AI</span>
-              </span>
-              <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                v2.4
-              </span>
-            </div>
+            <SentinelLogo size={32} />
+            <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+              v2.4
+            </span>
           </div>
 
           {/* DESKTOP NAV LINKS */}
@@ -285,16 +287,16 @@ export default function LandingPage({ onNavigate, backendOnline, currentUser }) 
           ========================================================= */}
       <section className="relative z-10 pt-36 pb-20 md:pt-44 md:pb-32 max-w-7xl mx-auto px-6">
         <div className="flex flex-col items-center text-center max-w-4xl mx-auto">
-          {/* ENGINE STATUS PILL BADGE */}
-          <div className="mb-6 inline-flex items-center gap-2.5 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-4 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-300 backdrop-blur-md animate-in fade-in slide-in-from-top-3 duration-500">
+          {/* ENGINE STATUS PILL BADGE (MATCHING REFERENCE IMAGE) */}
+          <div className="mb-6 sentinel-pill-badge animate-in fade-in slide-in-from-top-3 duration-500">
             <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-purple-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-purple-500" />
             </span>
-            <span>Sentinel AI Operations Engine v2.4 Live</span>
-            <span className="text-indigo-400/40">•</span>
+            <span>Adaptive AI Routing &amp; SRE Engine v2.4 Live</span>
+            <span className="text-purple-400/40">•</span>
             <span className="text-muted-foreground">
-              {backendOnline ? "Control Plane Connected" : "Local Cluster Ready"}
+              {backendOnline ? "Control Plane Connected" : "Mesh Core Ready"}
             </span>
           </div>
 
@@ -588,6 +590,78 @@ export default function LandingPage({ onNavigate, backendOnline, currentUser }) 
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* SIGNATURE ADAPTIVE AI ROUTING SHOWCASE (MATCHING REFERENCE IMAGE) */}
+            <div className="md:col-span-2 lg:col-span-3 rounded-2xl border border-border/80 bg-[#08080d] p-8 md:p-10 relative overflow-hidden shadow-2xl transition-all duration-300 group hover:border-purple-500/40">
+              {/* Atmospheric radiant purple-violet bloom */}
+              <div className="absolute top-[-20%] right-[15%] w-[450px] h-[450px] rounded-full bg-radial from-purple-600/25 via-fuchsia-600/10 to-transparent blur-[80px] pointer-events-none" />
+              
+              <div className="relative z-10 flex flex-col justify-between h-full">
+                {/* Header with Logo and Pill Badge */}
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <SentinelLogo size={32} />
+                  <div className="sentinel-pill-badge">
+                    <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse shadow-[0_0_8px_#c084fc]" />
+                    <span>Adaptive AI Routing</span>
+                  </div>
+                </div>
+
+                {/* Dynamic Glowing Trajectory Curve with Vertical Grid */}
+                <div className="relative h-44 my-8 w-full overflow-hidden">
+                  <svg className="w-full h-full" viewBox="0 0 700 180" fill="none" preserveAspectRatio="none">
+                    {/* Vertical subtle technical grid markers */}
+                    {[70, 140, 210, 280, 350, 420, 490, 560, 630].map((x) => (
+                      <line key={x} x1={x} y1="0" x2={x} y2="180" stroke="rgba(255,255,255,0.035)" strokeWidth="1" />
+                    ))}
+
+                    <defs>
+                      <filter id="trajectoryGlow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="5" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                      </filter>
+                    </defs>
+
+                    {/* The rising neon curve */}
+                    <path
+                      d="M 40 150 C 140 145 220 115 280 110 C 350 105 400 130 450 95 C 490 65 520 25 550 35 C 575 45 610 85 660 75"
+                      fill="none"
+                      stroke="#c084fc"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      filter="url(#trajectoryGlow)"
+                    />
+
+                    {/* Secondary sharp core stroke */}
+                    <path
+                      d="M 40 150 C 140 145 220 115 280 110 C 350 105 400 130 450 95 C 490 65 520 25 550 35 C 575 45 610 85 660 75"
+                      fill="none"
+                      stroke="#f5d0fe"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+
+                    {/* Beacon point with concentric glow rings */}
+                    <circle cx="545" cy="42" r="36" fill="rgba(192, 132, 252, 0.15)" filter="blur(8px)" />
+                    <circle cx="545" cy="42" r="18" fill="rgba(216, 180, 254, 0.35)" filter="blur(3px)" />
+                    <circle cx="545" cy="42" r="6.5" fill="#ffffff" filter="drop-shadow(0 0 10px #ffffff)" />
+                  </svg>
+                </div>
+
+                {/* Typographic Statement matching reference image */}
+                <div className="max-w-xl">
+                  <h3 className="text-xl sm:text-2xl font-medium tracking-tight text-foreground leading-snug">
+                    Automatically selects the right{" "}
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-fuchsia-300 to-indigo-400 font-semibold drop-shadow-[0_0_15px_rgba(192,132,252,0.4)]">
+                      AI model
+                    </span>{" "}
+                    for every request in real time.
+                  </h3>
+                  <p className="mt-2.5 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    Autonomous telemetry dispatching, dynamic agentic routing, and multi-model consensus across Claude, Gemini, and GPT-4 for sub-second SRE incident remediation.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* FEATURE 1 */}
             <div className="group relative overflow-hidden rounded-2xl border border-border bg-card p-8 hover:border-indigo-500/40 hover:shadow-lg dark:hover:bg-white/[0.04] transition-all duration-300">
               <div className="w-12 h-12 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 border border-indigo-500/20 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-6 group-hover:scale-110 transition-transform">
@@ -1006,12 +1080,9 @@ export default function LandingPage({ onNavigate, backendOnline, currentUser }) 
       <footer className="border-t border-border bg-card dark:bg-[#07080d] py-12 px-6 text-xs text-muted-foreground transition-colors">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <ShieldCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            <span className="font-bold text-foreground text-sm">
-              Sentinel <span className="text-indigo-600 dark:text-indigo-400 font-medium">AI</span>
-            </span>
+            <SentinelLogo size={24} withText={true} />
             <span className="text-border">|</span>
-            <span>Autonomous Enterprise Operations & SRE Resilience</span>
+            <span>Autonomous Enterprise Operations &amp; SRE Resilience</span>
           </div>
 
           <div className="flex items-center gap-6">

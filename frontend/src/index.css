@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Outfit", "Plus Jakarta Sans", "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --color-background: var(--background);
@@ -257,4 +257,47 @@ body {
 .card-hover-glow:hover {
   border-color: rgba(99, 102, 241, 0.4);
   box-shadow: 0 10px 30px -10px rgba(99, 102, 241, 0.12);
+}
+
+/* =========================================================
+   ATMOSPHERIC NEURAL GLOW & VERTICAL TECH GRID
+   (Matching reference image visual aesthetic)
+   ========================================================= */
+
+.bg-sentinel-atmospheric {
+  background-color: #07070a;
+  background-image: 
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0, rgba(255, 255, 255, 0.025) 1px, transparent 1px, transparent 80px),
+    radial-gradient(circle at 75% 25%, rgba(168, 85, 247, 0.22) 0%, rgba(139, 92, 246, 0.08) 35%, transparent 65%);
+}
+
+.sentinel-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  color: #f1f5f9;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.5), 0 0 16px -4px rgba(168, 85, 247, 0.2);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sentinel-pill-badge:hover {
+  border-color: rgba(168, 85, 247, 0.4);
+  background: rgba(168, 85, 247, 0.08);
+  box-shadow: 0 6px 24px -4px rgba(168, 85, 247, 0.3);
+}
+
+.sentinel-glow-curve {
+  filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.75));
+}
+
+.sentinel-beacon-glow {
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 24px rgba(168, 85, 247, 0.9));
 }
