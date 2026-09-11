@@ -1,6 +1,12 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "frontend/dist",
+  "functions": {
+    "api/index.py": {
+      "runtime": "python@3.11",
+      "maxDuration": 15
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",

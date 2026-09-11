@@ -54,6 +54,7 @@ import AuthPage from "./pages/AuthPage"
 import { ThemeToggle } from "./context/ThemeContext"
 import { getApiBaseUrl, safeParseResponse } from "./utils/api"
 import { DEFAULT_SERVICES, DEFAULT_DEPENDENCY_GRAPH, CHAOS_INCIDENT_PRESETS } from "./utils/constants"
+import { simulateWhatIfDecision } from "./utils/simulation"
 
 const API_BASE = getApiBaseUrl()
 
@@ -662,27 +663,44 @@ function App() {
       setSimulationLoading(true)
       const targetService =
         services.find((s) => s.status !== "healthy")?.name ||
+        lastIncident?.service?.name ||
         simulationService ||
-        "payment-service"
+        "order-service"
 
-      const response = await fetch(`${API_BASE}/api/simulation/compare`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          service_name: targetService,
-          incident_type: simulationIncident || "payment_failure",
-        }),
-      })
+      const targetIncident =
+        lastIncident?.incident?.type ||
+        simulationIncident ||
+        "payment_failure"
 
-      const parsed = await safeParseResponse(response)
-      if (!parsed.ok) throw new Error(parsed.errorMessage || "What-If simulation failed")
-      setSimulation(parsed.data)
+      let simulationResult = null
+
+      try {
+        const response = await fetch(`${API_BASE}/api/simulation/compare`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({
+            service_name: targetService,
+            incident_type: targetIncident,
+          }),
+        })
+
+        const parsed = await safeParseResponse(response)
+        if (parsed.ok && parsed.isJson && parsed.data?.scenarios) {
+          simulationResult = parsed.data
+        }
+      } catch (err) {
+        console.warn("Backend What-If simulation request failed, running resilient simulation engine:", err)
+      }
+
+      // If backend was unreachable or returned non-JSON / 405 / 404, compute client-side
+      const finalSimulation =
+        simulationResult || simulateWhatIfDecision(targetService, targetIncident, memory)
+
+      setSimulation(finalSimulation)
     } catch (error) {
       console.error("What-If simulation error:", error)
-      setSimulation({
-        status: "error",
-        message: error.message || "Failed to execute What-If simulation.",
-      })
+      const fallback = simulateWhatIfDecision("order-service", "payment_failure", memory)
+      setSimulation(fallback)
     } finally {
       setSimulationLoading(false)
     }
@@ -1342,6 +1360,7 @@ function OverviewPage({
         simulationLoading={simulationLoading}
         canSimulate={services.length > 0}
         onSimulate={runSimulation}
+        onExecuteRecovery={recoverIncident}
       />
     </div>
   )
@@ -2328,6 +2347,7 @@ function RemediationPage({
         simulationLoading={simulationLoading}
         canSimulate={true}
         onSimulate={runSimulation}
+        onExecuteRecovery={onRecover}
       />
     </div>
   )
