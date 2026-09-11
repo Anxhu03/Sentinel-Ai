@@ -61,7 +61,7 @@ export default function SentinelLogo({
             cx="50"
             cy="50"
             r="44"
-            fill="url(#"
+            fill={`url(#${gradientId})`}
             className="opacity-0 group-hover:opacity-20 transition-opacity duration-500"
           />
 

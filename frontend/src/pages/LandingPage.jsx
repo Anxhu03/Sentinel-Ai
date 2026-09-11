@@ -593,7 +593,12 @@ export default function LandingPage({ onNavigate, backendOnline, currentUser }) 
             {/* SIGNATURE ADAPTIVE AI ROUTING SHOWCASE (MATCHING REFERENCE IMAGE) */}
             <div className="md:col-span-2 lg:col-span-3 rounded-2xl border border-border/80 bg-[#08080d] p-8 md:p-10 relative overflow-hidden shadow-2xl transition-all duration-300 group hover:border-purple-500/40">
               {/* Atmospheric radiant purple-violet bloom */}
-              <div className="absolute top-[-20%] right-[15%] w-[450px] h-[450px] rounded-full bg-radial from-purple-600/25 via-fuchsia-600/10 to-transparent blur-[80px] pointer-events-none" />
+              <div
+                className="absolute top-[-20%] right-[15%] w-[450px] h-[450px] rounded-full blur-[80px] pointer-events-none"
+                style={{
+                  background: "radial-gradient(circle, rgba(168, 85, 247, 0.25) 0%, rgba(217, 70, 239, 0.1) 40%, transparent 70%)"
+                }}
+              />
               
               <div className="relative z-10 flex flex-col justify-between h-full">
                 {/* Header with Logo and Pill Badge */}
