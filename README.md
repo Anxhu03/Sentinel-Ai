@@ -175,5 +175,16 @@ npx vercel --prod
 
 ---
 
+## 👥 Credits & Core Contributors
+
+Special recognition and credits to the core engineering and design contributors of **Sentinel AI**:
+
+* 🌟 **Anshuman Kumar**
+* 🌟 **Aman Singh**
+* 🌟 **Alok Keshari**
+* 🌟 **Aman Rawat**
+
+---
+
 ## 📄 License
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
